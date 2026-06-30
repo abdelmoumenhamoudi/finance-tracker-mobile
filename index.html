@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Finance Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e0800">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  :root {
+    --bg: #0e0800;
+    --sidebar: #140d00;
+    --card: #1c1200;
+    --card2: #231800;
+    --border: rgba(249,115,22,0.14);
+    --accent: #f97316;
+    --accent2: #ea580c;
+    --green: #22c55e;
+    --red: #f87171;
+    --gold: #fbbf24;
+    --text: #fef3c7;
+    --text2: #c07820;
+    --text3: #7c4f1a;
+    --white: #fff8f0;
+    --pill-bg: #1e1200;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 14px; display: flex; min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 230px; min-width: 230px; background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+  }
+  .sidebar-logo { padding: 26px 22px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo h1 { font-size: 15px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase; }
+  .sidebar-logo p { font-size: 11px; color: var(--text3); margin-top: 3px; letter-spacing: 0.3px; }
+
+  .nav-section { padding: 16px 14px; flex: 1; overflow-y: auto; }
+  .nav-section label {
+    font-size: 9px; font-weight: 700; color: var(--text3); letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 8px 10px 4px; display: block;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer;
+    color: var(--text2); transition: all 0.18s; font-size: 13px; font-weight: 600;
+    border-radius: 50px; margin-bottom: 2px; text-decoration: none; border: none; background: none;
+  }
+  .nav-item:hover { background: rgba(249,115,22,0.08); color: var(--text); }
+  .nav-item.active { background: var(--accent); color: #fff; }
+  .nav-item.active .icon { color: #fff; }
+  .nav-item .icon { width: 20px; text-align: center; font-size: 15px; color: var(--text3); transition: color 0.18s; }
+
+  .sidebar-bottom { padding: 18px 22px; border-top: 1px solid var(--border); }
+  .excel-badge { font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+
+  /* ── MAIN ── */
+  #main { margin-left: 230px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar {
+    padding: 16px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: space-between; background: var(--sidebar); position: sticky; top: 0; z-index: 50;
+  }
+  .topbar h2 { font-size: 20px; font-weight: 900; color: var(--white); letter-spacing: -0.3px; }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .content { padding: 28px 32px; flex: 1; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 9px 20px; border-radius: 50px; border: none; cursor: pointer; font-size: 13px;
+    font-weight: 700; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px;
+    letter-spacing: 0.2px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+  .btn-secondary { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.3); color: var(--accent); }
+  .btn-danger { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
+  .btn-danger:hover { background: rgba(248,113,113,0.22); }
+  .btn-success { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+  .btn-sm { padding: 5px 13px; font-size: 12px; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 22px;
+  }
+  .card-title {
+    font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
+    letter-spacing: 1.2px; margin-bottom: 10px;
+  }
+
+  /* ── GRID ── */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+  /* ── KPI CARD ── */
+  .kpi-card { position: relative; overflow: hidden; }
+  .kpi-card .kpi-icon { font-size: 22px; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 50%; background: rgba(249,115,22,0.12); border: 1px solid rgba(249,115,22,0.2); }
+  .kpi-card .kpi-val { font-size: 28px; font-weight: 900; color: var(--white); margin-bottom: 4px; letter-spacing: -1px; }
+  .kpi-card .kpi-sub { font-size: 11px; color: var(--text3); margin-bottom: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .kpi-card .kpi-conv { font-size: 12px; color: var(--text2); display: flex; gap: 8px; }
+  .kpi-card .kpi-conv span { padding: 3px 10px; border-radius: 50px; background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.15); font-weight: 600; }
+  .kpi-accent { border-top: 2px solid var(--accent); }
+  .kpi-green { border-top: 2px solid var(--green); }
+  .kpi-red { border-top: 2px solid var(--red); }
+  .kpi-gold { border-top: 2px solid var(--gold); }
+
+  .networth-card {
+    background: var(--accent); border: none;
+    position: relative; overflow: hidden;
+  }
+  .networth-card::before {
+    content: ''; position: absolute; top: -40px; right: -40px; width: 160px; height: 160px;
+    border-radius: 50%; background: rgba(255,255,255,0.06);
+  }
+  .networth-card::after {
+    content: ''; position: absolute; bottom: -60px; right: 60px; width: 200px; height: 200px;
+    border-radius: 50%; background: rgba(0,0,0,0.08);
+  }
+  .networth-card .nw-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.65); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .networth-card .nw-val { font-size: 52px; font-weight: 900; color: #fff; letter-spacing: -2px; margin-bottom: 4px; line-height: 1; }
+  .networth-card .nw-convs { display: flex; gap: 12px; margin-top: 18px; position: relative; z-index: 1; }
+  .networth-card .nw-conv { background: rgba(0,0,0,0.2); border-radius: 14px; padding: 10px 16px; }
+  .networth-card .nw-conv .cur { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+  .networth-card .nw-conv .amt { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(249,115,22,0.04); }
+  .td-actions { display: flex; gap: 6px; }
+
+  /* ── BADGES ── */
+  .badge { padding: 4px 11px; border-radius: 50px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; letter-spacing: 0.3px; }
+  .badge-open { background: rgba(249,115,22,0.15); color: var(--accent); border: 1px solid rgba(249,115,22,0.25); }
+  .badge-partial { background: rgba(251,191,36,0.15); color: var(--gold); border: 1px solid rgba(251,191,36,0.25); }
+  .badge-paid { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+  .badge-overdue { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.25); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+  .badge-bank { background: rgba(249,115,22,0.12); color: var(--accent); }
+  .badge-cash { background: rgba(34,197,94,0.12); color: var(--green); }
+  .badge-savings { background: rgba(251,191,36,0.12); color: var(--gold); }
+  .badge-wallet { background: rgba(249,115,22,0.08); color: #fb923c; }
+  .badge-other { background: rgba(124,79,26,0.2); color: var(--text2); }
+
+  /* ── MODAL ── */
+  #modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center; }
+  #modal-overlay.open { display: flex; }
+  .modal-box { background: var(--card); border: 1px solid rgba(249,115,22,0.2); border-radius: 24px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 22px 26px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h3 { font-size: 17px; font-weight: 800; color: var(--white); }
+  .modal-close { background: var(--card2); border: 1px solid var(--border); color: var(--text2); cursor: pointer; font-size: 16px; padding: 4px 9px; border-radius: 50px; transition: all 0.15s; }
+  .modal-close:hover { background: rgba(249,115,22,0.15); color: var(--accent); }
+  .modal-body { padding: 22px 26px; }
+  .modal-footer { padding: 16px 26px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+  /* ── FORM ── */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-row.full { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; }
+  .form-control {
+    background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 12px;
+    padding: 10px 14px; font-size: 13px; outline: none; transition: border-color 0.15s; width: 100%; font-family: inherit;
+  }
+  .form-control:focus { border-color: var(--accent); }
+  .form-control option { background: var(--card2); }
+  select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23c07820' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+  /* ── TOAST ── */
+  #toast { position: fixed; bottom: 28px; right: 28px; background: var(--accent); color: #fff; padding: 12px 22px; border-radius: 50px; font-size: 13px; font-weight: 700; z-index: 2000; transform: translateY(80px); opacity: 0; transition: all 0.3s; pointer-events: none; letter-spacing: 0.2px; }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { background: var(--red); }
+
+  /* ── MISC ── */
+  .empty-state { text-align: center; padding: 44px; color: var(--text3); font-size: 14px; }
+  .empty-state .empty-icon { font-size: 34px; margin-bottom: 10px; opacity: 0.5; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .section-header h3 { font-size: 16px; font-weight: 800; color: var(--white); letter-spacing: -0.2px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .filter-btn { padding: 6px 16px; border-radius: 50px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; }
+  .filter-btn:hover { border-color: rgba(249,115,22,0.4); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .saving-indicator { font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 5px; font-weight: 600; }
+  .num-green { color: var(--green); font-weight: 700; }
+  .num-red { color: var(--red); font-weight: 700; }
+  .num-gold { color: var(--gold); font-weight: 700; }
+
+  /* ── CHART CONTAINERS ── */
+  .chart-card { display: flex; flex-direction: column; }
+  .chart-wrap { flex: 1; position: relative; min-height: 200px; display: flex; align-items: center; justify-content: center; }
+  .chart-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; }
+  .legend-label { display: flex; align-items: center; color: var(--text2); font-weight: 500; }
+  .legend-val { font-weight: 700; color: var(--text); }
+
+  /* ── HISTORY ── */
+  .history-chart-wrap { height: 220px; position: relative; }
+
+  /* ── RATES PAGE ── */
+  .rates-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  .rate-card { background: var(--card2); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .rate-card .rc-cur { font-size: 14px; font-weight: 800; color: var(--white); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .rate-card .rc-sym { font-size: 22px; }
+  .rate-card .rc-label { font-size: 10px; font-weight: 700; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px; }
+  .rate-card.derived { opacity: 0.65; }
+  .rate-card.derived .form-control { color: var(--text3); }
+
+  @media (max-width: 1100px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .rates-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── PIN SCREEN ── */
+  #pin-screen {
+    position: fixed; inset: 0; background: #0e0800; z-index: 9999;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0;
+  }
+  #pin-screen.visible { display: flex; }
+  .pin-brand { text-align: center; margin-bottom: 36px; }
+  .pin-logo { font-size: 44px; margin-bottom: 10px; }
+  .pin-app-name { font-size: 13px; font-weight: 800; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
+  .pin-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 28px; letter-spacing: 0.2px; }
+  .pin-dots { display: flex; gap: 16px; margin-bottom: 12px; }
+  .pin-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--text3); background: transparent; transition: all 0.15s;
+  }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); transform: scale(1.1); }
+  .pin-error { height: 22px; font-size: 13px; font-weight: 600; color: var(--red); margin-bottom: 16px; text-align: center; }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px; margin-top: 10px; }
+  .pin-key {
+    width: 72px; height: 72px; border-radius: 50%; border: 1.5px solid var(--border);
+    background: var(--card); color: var(--white); font-size: 22px; font-weight: 700;
+    cursor: pointer; transition: all 0.12s; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pin-key:hover { background: var(--card2); border-color: rgba(249,115,22,0.4); }
+  .pin-key:active { background: var(--accent); border-color: var(--accent); transform: scale(0.93); }
+  .pin-key-del { font-size: 18px; background: transparent; border-color: transparent; color: var(--text2); }
+  .pin-key-del:hover { color: var(--accent); background: transparent; }
+  .pin-key-empty { visibility: hidden; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-8px)} 80%{transform:translateX(8px)} }
+  .pin-shake { animation: shake 0.4s ease; }
+  .pin-forgot { margin-top: 28px; font-size: 12px; color: var(--text3); cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .pin-forgot:hover { color: var(--text2); }
+
+  /* ── SECURITY PAGE ── */
+  .security-section { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; margin-bottom: 16px; }
+  .security-section h4 { font-size: 14px; font-weight: 800; color: var(--white); margin-bottom: 6px; }
+  .security-section p { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
+  .pin-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 50px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+  .pin-status-on  { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .pin-status-off { background: rgba(124,79,26,0.2); color: var(--text3); border: 1px solid var(--border); }
+  .pin-setup-dots { display: flex; gap: 10px; margin: 16px 0 8px; }
+  .pin-setup-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text3); background: transparent; transition: all 0.15s; }
+  .pin-setup-dot.filled { background: var(--accent); border-color: var(--accent); }
+  .pin-setup-pad { display: grid; grid-template-columns: repeat(3, 56px); gap: 10px; margin-top: 8px; }
+  .pin-setup-key {
+    width: 56px; height: 56px; border-radius: 50%; border: 1.5px solid var(--border);
+    background: var(--card2); color: var(--white); font-size: 18px; font-weight: 700;
+    cursor: pointer; transition: all 0.12s; font-family: inherit;
+  }
+  .pin-setup-key:active { background: var(--accent); border-color: var(--accent); transform: scale(0.92); }
+  .pin-setup-key-del { font-size: 14px; background: transparent; border-color: transparent; color: var(--text2); }
+  .pin-setup-label { font-size: 12px; font-weight: 700; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <h1>💰 Finance Tracker</h1>
+    <p>Personal Dashboard</p>
+  </div>
+  <div class="nav-section">
+    <label>Overview</label>
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <span class="icon">📊</span> Dashboard
+    </div>
+    <label>Manage</label>
+    <div class="nav-item" onclick="navigate('accounts')">
+      <span class="icon">🏦</span> Cash & Accounts
+    </div>
+    <div class="nav-item" onclick="navigate('lent')">
+      <span class="icon">💸</span> Money Lent
+    </div>
+    <div class="nav-item" onclick="navigate('owed')">
+      <span class="icon">💳</span> Money I Owe
+    </div>
+    <label>Analytics</label>
+    <div class="nav-item" onclick="navigate('history')">
+      <span class="icon">📈</span> Net Worth History
+    </div>
+    <div class="nav-item" onclick="navigate('rates')">
+      <span class="icon">⚙️</span> Exchange Rates
+    </div>
+    <label>Settings</label>
+    <div class="nav-item" onclick="navigate('security')">
+      <span class="icon">🔒</span> Security
+    </div>
+  </div>
+  <div class="sidebar-bottom">
+    <div class="excel-badge"><span class="dot"></span> Synced with Excel</div>
+    <button class="btn btn-secondary" id="lock-btn" onclick="lockApp()" style="width:100%;margin-top:10px;display:none">🔒 Lock App</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="topbar">
+    <h2 id="page-title">Dashboard</h2>
+    <div class="topbar-actions">
+      <span class="saving-indicator" id="save-status"></span>
+      <button class="btn btn-secondary" onclick="reloadData()">🔄 Refresh</button>
+    </div>
+  </div>
+  <div class="content" id="content-area">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="page active" id="page-dashboard">
+      <div id="dash-networth"></div>
+      <div class="grid-4" id="dash-kpis"></div>
+      <div class="grid-2-1">
+        <div class="card chart-card" id="dash-accounts-card">
+          <div class="card-title">Accounts Breakdown</div>
+          <div class="table-wrap" id="dash-accounts-table"></div>
+        </div>
+        <div class="card chart-card" id="dash-donut-card">
+          <div class="card-title">Asset Overview</div>
+          <div class="chart-wrap"><canvas id="donut-chart" width="180" height="180"></canvas></div>
+          <div class="chart-legend" id="donut-legend"></div>
+        </div>
+      </div>
+      <div class="grid-2" id="dash-tables">
+        <div class="card">
+          <div class="section-header">
+            <div class="card-title" style="margin:0">Money Lent — Open</div>
+            <button class="btn btn-sm btn-secondary" onclick="navigate('lent')">View All →</button>
+          </div>
+          <div class="table-wrap" id="dash-lent-table"></div>
+        </div>
+        <div class="card">
+          <div class="section-header">
+            <div class="card-title" style="margin:0">Money I Owe</div>
+            <button class="btn btn-sm btn-secondary" onclick="navigate('owed')">View All →</button>
+          </div>
+          <div class="table-wrap" id="dash-owed-table"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ACCOUNTS ═══ -->
+    <div class="page" id="page-accounts">
+      <div class="section-header">
+        <h3>All Accounts</h3>
+        <button class="btn btn-primary" onclick="openAddAccount()">+ Add Account</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table id="accounts-table">
+            <thead><tr>
+              <th>Account Name</th><th>Type</th><th>Currency</th>
+              <th>Balance</th><th>Balance (₺)</th><th>Notes</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="accounts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ LENT ═══ -->
+    <div class="page" id="page-lent">
+      <div class="section-header">
+        <h3>Money Lent Out</h3>
+        <button class="btn btn-primary" onclick="openAddLent()">+ Add Record</button>
+      </div>
+      <div class="filter-row" id="lent-filters">
+        <button class="filter-btn active" onclick="setLentFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setLentFilter('Open',this)">Open</button>
+        <button class="filter-btn" onclick="setLentFilter('Partial',this)">Partial</button>
+        <button class="filter-btn" onclick="setLentFilter('Paid',this)">Paid</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Borrower</th><th>Description</th><th>Currency</th>
+              <th>Lent</th><th>Repaid</th><th>Outstanding</th><th>Outstanding (₺)</th>
+              <th>Status</th><th>Due Date</th><th>Notes</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="lent-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ OWED ═══ -->
+    <div class="page" id="page-owed">
+      <div class="section-header">
+        <h3>Money I Owe</h3>
+        <button class="btn btn-primary" onclick="openAddOwed()">+ Add Record</button>
+      </div>
+      <div class="filter-row" id="owed-filters">
+        <button class="filter-btn active" onclick="setOwedFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setOwedFilter('Open',this)">Open</button>
+        <button class="filter-btn" onclick="setOwedFilter('Partial',this)">Partial</button>
+        <button class="filter-btn" onclick="setOwedFilter('Paid',this)">Paid</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Lender</th><th>Description</th><th>Currency</th>
+              <th>Owed</th><th>Repaid</th><th>Outstanding</th><th>Outstanding (₺)</th>
+              <th>Status</th><th>Due Date</th><th>Notes</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="owed-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ HISTORY ═══ -->
+    <div class="page" id="page-history">
+      <div class="section-header">
+        <h3>Net Worth History</h3>
+        <button class="btn btn-primary" onclick="openAddHistory()">+ Add Snapshot</button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Net Worth Over Time (₺)</div>
+        <div class="history-chart-wrap"><canvas id="history-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Net Worth (₺)</th><th>Cash (₺)</th>
+              <th>Owed to Me (₺)</th><th>I Owe (₺)</th><th>Notes</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ RATES ═══ -->
+    <div class="page" id="page-rates">
+      <div class="section-header">
+        <h3>Exchange Rates</h3>
+        <button class="btn btn-primary" onclick="saveRatesNow()">💾 Save Rates</button>
+      </div>
+      <div class="card" style="margin-bottom:16px; padding:14px 20px">
+        <p style="font-size:13px; color:var(--text2)">
+          Base currency: <strong style="color:var(--white)">₺ TRY</strong> —
+          All rates = value of 1 unit of that currency in TRY.
+          DZD is auto-derived from EUR (DZD = EUR_rate / 280).
+        </p>
+      </div>
+      <div class="rates-grid" id="rates-grid"></div>
+    </div>
+
+    <!-- ═══ SECURITY ═══ -->
+    <div class="page" id="page-security">
+      <div class="section-header">
+        <h3>Security — PIN Lock</h3>
+      </div>
+
+      <div class="security-section">
+        <h4>PIN Protection</h4>
+        <p>A 4-digit PIN will be required every time you open the app. Your data stays private even if someone else has access to your computer.</p>
+        <div id="pin-status-badge"></div>
+        <div id="security-actions"></div>
+      </div>
+
+      <div class="security-section" id="pin-setup-area" style="display:none">
+        <h4 id="setup-title">Set a new PIN</h4>
+        <p id="setup-desc">Enter a 4-digit PIN. Remember it — there is no recovery option other than resetting.</p>
+        <div class="pin-setup-label" id="setup-step-label">New PIN</div>
+        <div class="pin-setup-dots" id="setup-dots">
+          <div class="pin-setup-dot" id="spd0"></div>
+          <div class="pin-setup-dot" id="spd1"></div>
+          <div class="pin-setup-dot" id="spd2"></div>
+          <div class="pin-setup-dot" id="spd3"></div>
+        </div>
+        <div class="pin-error" id="setup-error"></div>
+        <div class="pin-setup-pad">
+          <button class="pin-setup-key" onclick="setupKey('1')">1</button>
+          <button class="pin-setup-key" onclick="setupKey('2')">2</button>
+          <button class="pin-setup-key" onclick="setupKey('3')">3</button>
+          <button class="pin-setup-key" onclick="setupKey('4')">4</button>
+          <button class="pin-setup-key" onclick="setupKey('5')">5</button>
+          <button class="pin-setup-key" onclick="setupKey('6')">6</button>
+          <button class="pin-setup-key" onclick="setupKey('7')">7</button>
+          <button class="pin-setup-key" onclick="setupKey('8')">8</button>
+          <button class="pin-setup-key" onclick="setupKey('9')">9</button>
+          <button class="pin-setup-key pin-setup-key-del" onclick="setupDel()">⌫</button>
+          <button class="pin-setup-key" onclick="setupKey('0')">0</button>
+          <div></div>
+        </div>
+        <button class="btn btn-secondary" onclick="cancelSetup()" style="margin-top:16px">Cancel</button>
+      </div>
+    </div>
+
+  </div><!-- /content-area -->
+</div><!-- /main -->
+
+<!-- PIN SCREEN -->
+<div id="pin-screen">
+  <div class="pin-brand">
+    <div class="pin-logo" onclick="pinLogoTap()" style="cursor:default;user-select:none">💰</div>
+    <div class="pin-app-name">Finance Tracker</div>
+  </div>
+  <div class="pin-title" id="pin-title">Enter your PIN</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-error" id="pin-error"></div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1</button>
+    <button class="pin-key" onclick="pinKey('2')">2</button>
+    <button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button>
+    <button class="pin-key" onclick="pinKey('5')">5</button>
+    <button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button>
+    <button class="pin-key" onclick="pinKey('8')">8</button>
+    <button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key pin-key-del" onclick="pinDel()">⌫</button>
+    <button class="pin-key" onclick="pinKey('0')">0</button>
+    <div class="pin-key pin-key-empty"></div>
+  </div>
+  <div class="pin-forgot" id="pin-forgot-link" onclick="pinForgot()" style="display:none">Forgot PIN?</div>
+</div>
+
+<!-- GOOGLE SIGN-IN SCREEN -->
+<div id="google-screen" style="display:none;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:18px">
+  <div class="pin-logo" style="font-size:48px">☁️</div>
+  <div style="font-size:18px;font-weight:800;color:var(--white)">Connect your Google Sheet</div>
+  <div style="font-size:13px;color:var(--text2);max-width:320px;text-align:center;line-height:1.5">Your data now lives in Google Sheets so you can edit it from your phone too. Sign in once to continue.</div>
+  <button class="btn btn-primary" onclick="doGoogleSignIn()" id="google-signin-btn">Sign in with Google</button>
+  <div id="google-signin-status" style="font-size:12px;color:var(--text2)"></div>
+</div>
+
+<!-- SECURITY PAGE (inside content-area) -->
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Add Record</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save-btn" onclick="modalSave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+let state = { accounts: [], lent: [], owed: [], rates: {}, history: [] };
+let lentFilter = 'all';
+let owedFilter = 'all';
+let modalSaveFn = null;
+let saveTimer = null;
+let donutChart = null;
+let historyChart = null;
+
+const CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'MAD', 'DZD'];
+
+// ══════════════════════════════════════════════════════════════════
+// GOOGLE SHEETS — DIRECT BROWSER ACCESS (no backend)
+// ══════════════════════════════════════════════════════════════════
+const GSHEET_ID = '1kogf5JtrbY142SxpSRDXiYTkurmNoE05ijQ_W0_YznY';
+const GOOGLE_WEB_CLIENT_ID = '940809404596-06024k0nsd7p926bv0pniic65smakkp3.apps.googleusercontent.com';
+const GS_SHEET_DEFS = {
+  Accounts: ['Account', 'Type', 'Currency', 'Balance', 'Notes'],
+  Lent: ['Date', 'Borrower', 'Description', 'Currency', 'Amount Lent', 'Amount Repaid', 'Due Date', 'Notes'],
+  Owed: ['Date', 'Lender', 'Description', 'Currency', 'Amount Owed', 'Amount Repaid', 'Due Date', 'Notes'],
+  History: ['Date', 'Net Worth', 'Cash', 'Owed To Me', 'I Owe', 'Notes'],
+  Rates: ['Currency', 'Symbol', 'Rate'],
+};
+
+let gisTokenClient = null;
+let gisAccessToken = null;
+
+function gisInit() {
+  if (gisTokenClient) return;
+  gisTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_WEB_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    callback: () => {},
+  });
+}
+
+function gisRequestToken(promptMode) {
+  return new Promise((resolve, reject) => {
+    gisInit();
+    gisTokenClient.callback = (resp) => {
+      if (resp.error) { reject(resp); return; }
+      gisAccessToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in * 1000) };
+      sessionStorage.setItem('gis_token', JSON.stringify(gisAccessToken));
+      resolve(gisAccessToken.token);
+    };
+    gisTokenClient.requestAccessToken({ prompt: promptMode });
+  });
+}
+
+async function gisGetToken(interactive) {
+  if (!gisAccessToken) {
+    const cached = sessionStorage.getItem('gis_token');
+    if (cached) gisAccessToken = JSON.parse(cached);
+  }
+  if (gisAccessToken && gisAccessToken.expiresAt - 60000 > Date.now()) return gisAccessToken.token;
+  try { return await gisRequestToken(''); }
+  catch (e) { if (!interactive) throw e; return await gisRequestToken('consent'); }
+}
+
+function gisIsSignedIn() {
+  const cached = sessionStorage.getItem('gis_token');
+  if (!cached) return false;
+  const t = JSON.parse(cached);
+  return t.expiresAt > Date.now();
+}
+
+async function gsFetch(path, opts = {}) {
+  const token = await gisGetToken(true);
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GSHEET_ID}${path}`, {
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  });
+  if (!res.ok) throw new Error('Sheets API error: ' + res.status);
+  return res.json();
+}
+
+function gsRowsToObjects(headers, rows) {
+  return (rows || []).map(row => {
+    const o = {};
+    headers.forEach((h, i) => { o[h] = row[i] !== undefined ? row[i] : ''; });
+    return o;
+  });
+}
+
+async function gsReadAll() {
+  const ranges = Object.keys(GS_SHEET_DEFS).map(n => `ranges=${encodeURIComponent(n + '!A2:Z')}`).join('&');
+  const res = await gsFetch(`/values:batchGet?${ranges}`);
+  const [accRows, lentRows, owedRows, histRows, rateRows] = res.valueRanges.map(r => r.values || []);
+
+  const accounts = gsRowsToObjects(GS_SHEET_DEFS.Accounts, accRows).map(o => ({
+    account: o['Account'], type: o['Type'], currency: o['Currency'], balance: Number(o['Balance']) || 0, notes: o['Notes'],
+  })).filter(a => a.account);
+
+  const lent = gsRowsToObjects(GS_SHEET_DEFS.Lent, lentRows).map(o => ({
+    date: o['Date'] || null, borrower: o['Borrower'], description: o['Description'], currency: o['Currency'],
+    amount_lent: Number(o['Amount Lent']) || 0, amount_repaid: Number(o['Amount Repaid']) || 0,
+    due_date: o['Due Date'] || null, notes: o['Notes'],
+  })).filter(r => r.borrower);
+
+  const owed = gsRowsToObjects(GS_SHEET_DEFS.Owed, owedRows).map(o => ({
+    date: o['Date'] || null, lender: o['Lender'], description: o['Description'], currency: o['Currency'],
+    amount_owed: Number(o['Amount Owed']) || 0, amount_repaid: Number(o['Amount Repaid']) || 0,
+    due_date: o['Due Date'] || null, notes: o['Notes'],
+  })).filter(r => r.lender);
+
+  const history = gsRowsToObjects(GS_SHEET_DEFS.History, histRows).map(o => ({
+    date: o['Date'] || null, net_worth: Number(o['Net Worth']) || 0, cash: Number(o['Cash']) || 0,
+    owed_to_me: Number(o['Owed To Me']) || 0, i_owe: Number(o['I Owe']) || 0, notes: o['Notes'],
+  })).filter(r => r.date);
+
+  const rates = {};
+  gsRowsToObjects(GS_SHEET_DEFS.Rates, rateRows).forEach(o => {
+    if (!o['Currency']) return;
+    rates[o['Currency']] = { symbol: o['Symbol'] || o['Currency'], rate: o['Rate'] === '' ? null : Number(o['Rate']) };
+  });
+
+  return { accounts, lent, owed, history, rates };
+}
+
+function gsObjectsToRows(headers, items, mapper) {
+  return items.map(item => headers.map(h => mapper(item, h)));
+}
+
+async function gsWriteAll({ accounts, lent, owed, history, rates }) {
+  const data = [];
+  if (accounts !== undefined) data.push({ range: 'Accounts!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Accounts, accounts, (a, h) => ({
+    'Account': a.account, 'Type': a.type, 'Currency': a.currency, 'Balance': a.balance, 'Notes': a.notes || '',
+  }[h] ?? '')) });
+  if (lent !== undefined) data.push({ range: 'Lent!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Lent, lent, (r, h) => ({
+    'Date': r.date || '', 'Borrower': r.borrower, 'Description': r.description || '', 'Currency': r.currency,
+    'Amount Lent': r.amount_lent, 'Amount Repaid': r.amount_repaid || 0, 'Due Date': r.due_date || '', 'Notes': r.notes || '',
+  }[h] ?? '')) });
+  if (owed !== undefined) data.push({ range: 'Owed!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Owed, owed, (r, h) => ({
+    'Date': r.date || '', 'Lender': r.lender, 'Description': r.description || '', 'Currency': r.currency,
+    'Amount Owed': r.amount_owed, 'Amount Repaid': r.amount_repaid || 0, 'Due Date': r.due_date || '', 'Notes': r.notes || '',
+  }[h] ?? '')) });
+  if (history !== undefined) data.push({ range: 'History!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.History, history, (r, h) => ({
+    'Date': r.date || '', 'Net Worth': r.net_worth, 'Cash': r.cash, 'Owed To Me': r.owed_to_me, 'I Owe': r.i_owe, 'Notes': r.notes || '',
+  }[h] ?? '')) });
+  if (rates !== undefined) {
+    const rateItems = Object.entries(rates).map(([cur, v]) => ({ cur, ...v }));
+    data.push({ range: 'Rates!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Rates, rateItems, (r, h) => ({
+      'Currency': r.cur, 'Symbol': r.symbol, 'Rate': r.rate === null || r.rate === undefined ? '' : r.rate,
+    }[h] ?? '')) });
+  }
+
+  const clearRanges = data.map(d => d.range);
+  if (clearRanges.length) {
+    await gsFetch('/values:batchClear', { method: 'POST', body: JSON.stringify({ ranges: clearRanges }) });
+  }
+  const headerWrites = Object.entries(GS_SHEET_DEFS).map(([name, headers]) => ({ range: `${name}!A1`, values: [headers] }));
+  await gsFetch('/values:batchUpdate', {
+    method: 'POST',
+    body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: [...headerWrites, ...data.filter(d => d.values.length)] }),
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+window.onload = () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  initPinLock();
+};
+
+async function loadData() {
+  setSaveStatus('Loading...');
+  try {
+    const data = await gsReadAll();
+    state = { ...state, ...data };
+    renderCurrentPage();
+    setSaveStatus('');
+  } catch (e) {
+    showToast('Failed to load data: ' + e.message, true);
+    setSaveStatus('Error loading');
+  }
+}
+
+async function reloadData() { await loadData(); showToast('Data refreshed'); }
+
+// ══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════
+const PAGE_TITLES = {
+  dashboard: 'Dashboard', accounts: 'Cash & Accounts',
+  lent: 'Money Lent', owed: 'Money I Owe',
+  history: 'Net Worth History', rates: 'Exchange Rates',
+  security: 'Security'
+};
+
+let currentPage = 'dashboard';
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') === `navigate('${page}')`) n.classList.add('active');
+  });
+  document.getElementById('page-title').textContent = PAGE_TITLES[page] || page;
+  renderCurrentPage();
+}
+
+function renderCurrentPage() {
+  switch (currentPage) {
+    case 'dashboard': renderDashboard(); break;
+    case 'accounts': renderAccounts(); break;
+    case 'lent': renderLent(); break;
+    case 'owed': renderOwed(); break;
+    case 'history': renderHistory(); break;
+    case 'rates': renderRates(); break;
+    case 'security': renderSecurity(); break;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ══════════════════════════════════════════════════════════════════
+function getRate(currency) {
+  return state.rates[currency]?.rate || 1;
+}
+
+function toBase(amount, currency) {
+  return (amount || 0) * getRate(currency);
+}
+
+function calcSummary() {
+  const cash = state.accounts.reduce((s, a) => s + toBase(a.balance, a.currency), 0);
+  const owedToMe = state.lent.reduce((s, r) => {
+    const out = (r.amount_lent || 0) - (r.amount_repaid || 0);
+    return s + toBase(Math.max(out, 0), r.currency);
+  }, 0);
+  const iOwe = state.owed.reduce((s, r) => {
+    const out = (r.amount_owed || 0) - (r.amount_repaid || 0);
+    return s + toBase(Math.max(out, 0), r.currency);
+  }, 0);
+  return { cash, owedToMe, iOwe, netWorth: cash + owedToMe - iOwe };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FORMAT
+// ══════════════════════════════════════════════════════════════════
+function fmt(val, decimals = 0) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  return Number(val).toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtCur(val, currency = 'TRY') {
+  const syms = { TRY:'₺', EUR:'€', USD:'$', GBP:'£', MAD:'DH', DZD:'DA' };
+  const sym = syms[currency] || currency + ' ';
+  if (currency === 'TRY') return '₺' + fmt(val);
+  return sym + fmt(val);
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  if (typeof d === 'number') {
+    const date = new Date((d - 25569) * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+  return String(d).split('T')[0];
+}
+
+function getStatus(lent, repaid) {
+  const outstanding = (lent || 0) - (repaid || 0);
+  if (outstanding <= 0) return 'Paid';
+  if (repaid > 0) return 'Partial';
+  return 'Open';
+}
+
+function statusBadge(status, overdue) {
+  if (overdue === 'OVERDUE') return `<span class="badge badge-overdue">⚠ OVERDUE</span>`;
+  const cls = { Open: 'badge-open', Partial: 'badge-partial', Paid: 'badge-paid' }[status] || 'badge-open';
+  return `<span class="badge ${cls}">${status || 'Open'}</span>`;
+}
+
+function typeBadge(type) {
+  const cls = { Bank:'badge-bank', Cash:'badge-cash', CASH:'badge-cash', Savings:'badge-savings', Wallet:'badge-wallet' }[type] || 'badge-other';
+  return `<span class="badge ${cls}">${type || ''}</span>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const { cash, owedToMe, iOwe, netWorth } = calcSummary();
+  const eurRate = getRate('EUR');
+  const dzdRate = getRate('DZD');
+  const nwEur = eurRate ? netWorth / eurRate : 0;
+  const nwDzd = dzdRate ? netWorth / dzdRate : 0;
+
+  // Net Worth card
+  document.getElementById('dash-networth').innerHTML = `
+    <div class="card networth-card" style="margin-bottom:20px">
+      <div class="nw-label">NET WORTH</div>
+      <div class="nw-val">₺${fmt(netWorth)}</div>
+      <div class="nw-convs">
+        <div class="nw-conv"><div class="cur">EUR</div><div class="amt">€${fmt(nwEur)}</div></div>
+        <div class="nw-conv"><div class="cur">DZD</div><div class="amt">DA${fmt(nwDzd)}</div></div>
+        <div class="nw-conv"><div class="cur">Accounts</div><div class="amt">${state.accounts.length}</div></div>
+        <div class="nw-conv"><div class="cur">Open Debts</div><div class="amt">${state.lent.filter(r=>(r.amount_lent||0)-(r.amount_repaid||0)>0).length}</div></div>
+      </div>
+    </div>`;
+
+  // KPI cards
+  const cashEur = eurRate ? cash / eurRate : 0;
+  const omEur = eurRate ? owedToMe / eurRate : 0;
+  const ioEur = eurRate ? iOwe / eurRate : 0;
+  document.getElementById('dash-kpis').innerHTML = `
+    <div class="card kpi-card kpi-accent">
+      <div class="kpi-icon">💵</div>
+      <div class="card-title">Cash Available</div>
+      <div class="kpi-val">₺${fmt(cash)}</div>
+      <div class="kpi-conv"><span>€${fmt(cashEur)}</span></div>
+    </div>
+    <div class="card kpi-card kpi-green">
+      <div class="kpi-icon">📤</div>
+      <div class="card-title">Owed to Me</div>
+      <div class="kpi-val">₺${fmt(owedToMe)}</div>
+      <div class="kpi-conv"><span>€${fmt(omEur)}</span></div>
+    </div>
+    <div class="card kpi-card kpi-red">
+      <div class="kpi-icon">📥</div>
+      <div class="card-title">I Owe</div>
+      <div class="kpi-val">₺${fmt(iOwe)}</div>
+      <div class="kpi-conv"><span>€${fmt(ioEur)}</span></div>
+    </div>
+    <div class="card kpi-card kpi-gold">
+      <div class="kpi-icon">📊</div>
+      <div class="card-title">Open Loans</div>
+      <div class="kpi-val">${state.lent.filter(r=>(r.amount_lent||0)-(r.amount_repaid||0)>0).length + state.owed.filter(r=>(r.amount_owed||0)-(r.amount_repaid||0)>0).length}</div>
+      <div class="kpi-conv"><span>${state.lent.filter(r=>(r.amount_lent||0)-(r.amount_repaid||0)>0).length} lent out</span></div>
+    </div>`;
+
+  // Accounts table
+  const accRows = state.accounts.map(a => {
+    const base = toBase(a.balance, a.currency);
+    return `<tr>
+      <td>${a.account}</td>
+      <td>${typeBadge(a.type)}</td>
+      <td>${a.currency}</td>
+      <td>${fmtCur(a.balance, a.currency)}</td>
+      <td class="num-green">₺${fmt(base)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('dash-accounts-table').innerHTML = `
+    <table><thead><tr><th>Account</th><th>Type</th><th>Currency</th><th>Balance</th><th>in ₺</th></tr></thead>
+    <tbody>${accRows || '<tr><td colspan="5" class="empty-state">No accounts</td></tr>'}</tbody></table>`;
+
+  // Donut chart
+  renderDonut(cash, owedToMe, iOwe);
+
+  // Lent mini table
+  const openLent = state.lent.filter(r => (r.amount_lent||0)-(r.amount_repaid||0) > 0);
+  const lentRows = openLent.map(r => {
+    const out = (r.amount_lent||0) - (r.amount_repaid||0);
+    return `<tr>
+      <td><strong>${r.borrower}</strong></td>
+      <td>${fmtCur(out, r.currency)}</td>
+      <td>${statusBadge(getStatus(r.amount_lent, r.amount_repaid), r.overdue)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('dash-lent-table').innerHTML = `
+    <table><thead><tr><th>Borrower</th><th>Outstanding</th><th>Status</th></tr></thead>
+    <tbody>${lentRows || '<tr><td colspan="3" class="empty-state">No open loans</td></tr>'}</tbody></table>`;
+
+  // Owed mini table
+  const openOwed = state.owed.filter(r => (r.amount_owed||0)-(r.amount_repaid||0) > 0);
+  const owedRows = openOwed.map(r => {
+    const out = (r.amount_owed||0) - (r.amount_repaid||0);
+    return `<tr>
+      <td><strong>${r.lender}</strong></td>
+      <td>${fmtCur(out, r.currency)}</td>
+      <td>${statusBadge(getStatus(r.amount_owed, r.amount_repaid), r.overdue)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('dash-owed-table').innerHTML = `
+    <table><thead><tr><th>Lender</th><th>Outstanding</th><th>Status</th></tr></thead>
+    <tbody>${owedRows || '<tr><td colspan="3" class="empty-state">No debts</td></tr>'}</tbody></table>`;
+}
+
+function renderDonut(cash, owedToMe, iOwe) {
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  const total = cash + owedToMe + iOwe || 1;
+  const data = [cash, owedToMe, iOwe].map(v => Math.max(v, 0));
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Cash', 'Owed to Me', 'I Owe'],
+      datasets: [{ data, backgroundColor: ['#f97316','#22c55e','#f87171'], borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '70%',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ₺${fmt(ctx.parsed)}` }
+      }}
+    }
+  });
+  document.getElementById('donut-legend').innerHTML = [
+    ['Cash', cash, '#f97316'], ['Owed to Me', owedToMe, '#22c55e'], ['I Owe', iOwe, '#f87171']
+  ].map(([label, val, color]) => `
+    <div class="legend-item">
+      <div class="legend-label"><span class="legend-dot" style="background:${color}"></span>${label}</div>
+      <div class="legend-val">₺${fmt(val)}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ACCOUNTS PAGE
+// ══════════════════════════════════════════════════════════════════
+function renderAccounts() {
+  const tbody = document.getElementById('accounts-tbody');
+  if (state.accounts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🏦</div>No accounts yet. Add one!</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.accounts.map((a, i) => {
+    const base = toBase(a.balance, a.currency);
+    return `<tr>
+      <td><strong>${a.account || '—'}</strong></td>
+      <td>${typeBadge(a.type)}</td>
+      <td>${a.currency}</td>
+      <td>${fmtCur(a.balance, a.currency)}</td>
+      <td class="num-green">₺${fmt(base)}</td>
+      <td style="color:var(--text3)">${a.notes || '—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openEditAccount(${i})">✏️ Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteAccount(${i})">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddAccount() {
+  showModal('Add Account', accountForm({}), (data) => {
+    state.accounts.push(data);
+    schedSave();
+    renderAccounts();
+    renderDashboard();
+  });
+}
+
+function openEditAccount(i) {
+  showModal('Edit Account', accountForm(state.accounts[i]), (data) => {
+    state.accounts[i] = { ...state.accounts[i], ...data };
+    schedSave();
+    renderAccounts();
+    renderDashboard();
+  });
+}
+
+function deleteAccount(i) {
+  if (!confirm(`Delete account "${state.accounts[i].account}"?`)) return;
+  state.accounts.splice(i, 1);
+  schedSave();
+  renderAccounts();
+  renderDashboard();
+}
+
+function accountForm(a) {
+  return `
+    <div class="form-row">
+      <div class="form-group">
+        <label>Account Name</label>
+        <input class="form-control" id="f-account" value="${a.account||''}" placeholder="e.g. Ziraat Bank">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select class="form-control" id="f-type">
+          ${['Bank','Cash','CASH','Savings','Wallet','Other'].map(t=>`<option ${a.type===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Currency</label>
+        <select class="form-control" id="f-currency">
+          ${CURRENCIES.map(c=>`<option ${a.currency===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Balance</label>
+        <input class="form-control" id="f-balance" type="number" step="0.01" value="${a.balance||0}">
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group">
+        <label>Notes</label>
+        <input class="form-control" id="f-notes" value="${a.notes||''}">
+      </div>
+    </div>`;
+}
+
+function collectAccountForm() {
+  return {
+    account: v('f-account'), type: v('f-type'), currency: v('f-currency'),
+    balance: parseFloat(v('f-balance')) || 0, notes: v('f-notes')
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LENT PAGE
+// ══════════════════════════════════════════════════════════════════
+let lentFormType = 'lent';
+
+function renderLent() {
+  const filtered = lentFilter === 'all' ? state.lent :
+    state.lent.filter(r => getStatus(r.amount_lent, r.amount_repaid) === lentFilter);
+  const tbody = document.getElementById('lent-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">💸</div>No records found.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r, idx) => {
+    const i = state.lent.indexOf(r);
+    const out = (r.amount_lent||0) - (r.amount_repaid||0);
+    const outBase = toBase(Math.max(out,0), r.currency);
+    const status = getStatus(r.amount_lent, r.amount_repaid);
+    return `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td><strong>${r.borrower||'—'}</strong></td>
+      <td style="color:var(--text2)">${r.description||'—'}</td>
+      <td>${r.currency}</td>
+      <td>${fmtCur(r.amount_lent, r.currency)}</td>
+      <td style="color:var(--text3)">${fmtCur(r.amount_repaid||0, r.currency)}</td>
+      <td class="${out>0?'num-gold':''}">${fmtCur(Math.max(out,0), r.currency)}</td>
+      <td class="num-gold">₺${fmt(outBase)}</td>
+      <td>${statusBadge(status, r.overdue)}</td>
+      <td style="color:var(--text3)">${fmtDate(r.due_date)}</td>
+      <td style="color:var(--text3)">${r.notes||'—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm btn-success" onclick="markRepaid('lent',${i})" title="Mark repaid">✅</button>
+        <button class="btn btn-sm btn-secondary" onclick="openEditLent(${i})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteLent(${i})">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function setLentFilter(f, btn) {
+  lentFilter = f;
+  document.querySelectorAll('#lent-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLent();
+}
+
+function openAddLent() {
+  lentFormType = 'lent';
+  showModal('Add Money Lent', lentOwedForm({}, 'lent'), (data) => {
+    state.lent.push(data);
+    schedSave();
+    renderLent();
+    renderDashboard();
+  });
+}
+
+function openEditLent(i) {
+  lentFormType = 'lent';
+  showModal('Edit Lending Record', lentOwedForm(state.lent[i], 'lent'), (data) => {
+    state.lent[i] = { ...state.lent[i], ...data };
+    schedSave();
+    renderLent();
+    renderDashboard();
+  });
+}
+
+function deleteLent(i) {
+  if (!confirm(`Delete lending record for "${state.lent[i].borrower}"?`)) return;
+  state.lent.splice(i, 1);
+  schedSave();
+  renderLent();
+  renderDashboard();
+}
+
+function markRepaid(type, i) {
+  if (type === 'lent') {
+    const r = state.lent[i];
+    if (!confirm(`Mark full repayment from ${r.borrower}?`)) return;
+    state.lent[i].amount_repaid = state.lent[i].amount_lent;
+  } else {
+    const r = state.owed[i];
+    if (!confirm(`Mark full repayment to ${r.lender}?`)) return;
+    state.owed[i].amount_repaid = state.owed[i].amount_owed;
+  }
+  schedSave();
+  type === 'lent' ? renderLent() : renderOwed();
+  renderDashboard();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// OWED PAGE
+// ══════════════════════════════════════════════════════════════════
+function renderOwed() {
+  const filtered = owedFilter === 'all' ? state.owed :
+    state.owed.filter(r => getStatus(r.amount_owed, r.amount_repaid) === owedFilter);
+  const tbody = document.getElementById('owed-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">💳</div>No debts recorded.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r, idx) => {
+    const i = state.owed.indexOf(r);
+    const out = (r.amount_owed||0) - (r.amount_repaid||0);
+    const outBase = toBase(Math.max(out,0), r.currency);
+    const status = getStatus(r.amount_owed, r.amount_repaid);
+    return `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td><strong>${r.lender||'—'}</strong></td>
+      <td style="color:var(--text2)">${r.description||'—'}</td>
+      <td>${r.currency}</td>
+      <td>${fmtCur(r.amount_owed, r.currency)}</td>
+      <td style="color:var(--text3)">${fmtCur(r.amount_repaid||0, r.currency)}</td>
+      <td class="${out>0?'num-red':''}">${fmtCur(Math.max(out,0), r.currency)}</td>
+      <td class="num-red">₺${fmt(outBase)}</td>
+      <td>${statusBadge(status, r.overdue)}</td>
+      <td style="color:var(--text3)">${fmtDate(r.due_date)}</td>
+      <td style="color:var(--text3)">${r.notes||'—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm btn-success" onclick="markRepaid('owed',${i})" title="Mark repaid">✅</button>
+        <button class="btn btn-sm btn-secondary" onclick="openEditOwed(${i})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteOwed(${i})">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function setOwedFilter(f, btn) {
+  owedFilter = f;
+  document.querySelectorAll('#owed-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOwed();
+}
+
+function openAddOwed() {
+  lentFormType = 'owed';
+  showModal('Add Debt Record', lentOwedForm({}, 'owed'), (data) => {
+    state.owed.push(data);
+    schedSave();
+    renderOwed();
+    renderDashboard();
+  });
+}
+
+function openEditOwed(i) {
+  lentFormType = 'owed';
+  showModal('Edit Debt Record', lentOwedForm(state.owed[i], 'owed'), (data) => {
+    state.owed[i] = { ...state.owed[i], ...data };
+    schedSave();
+    renderOwed();
+    renderDashboard();
+  });
+}
+
+function deleteOwed(i) {
+  if (!confirm(`Delete debt record from "${state.owed[i].lender}"?`)) return;
+  state.owed.splice(i, 1);
+  schedSave();
+  renderOwed();
+  renderDashboard();
+}
+
+function lentOwedForm(r, type) {
+  const isLent = type === 'lent';
+  const personLabel = isLent ? 'Borrower' : 'Lender';
+  const personVal = isLent ? (r.borrower||'') : (r.lender||'');
+  const amtLabel = isLent ? 'Amount Lent' : 'Amount Owed';
+  const amtVal = isLent ? (r.amount_lent||'') : (r.amount_owed||'');
+  return `
+    <div class="form-row">
+      <div class="form-group">
+        <label>${personLabel}</label>
+        <input class="form-control" id="f-person" value="${personVal}" placeholder="${personLabel} name">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input class="form-control" id="f-date" type="date" value="${r.date ? fmtDate(r.date) : today()}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Currency</label>
+        <select class="form-control" id="f-currency">
+          ${CURRENCIES.map(c=>`<option ${r.currency===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>${amtLabel}</label>
+        <input class="form-control" id="f-amount" type="number" step="0.01" value="${amtVal}" placeholder="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Amount Repaid</label>
+        <input class="form-control" id="f-repaid" type="number" step="0.01" value="${r.amount_repaid||0}" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Due Date (optional)</label>
+        <input class="form-control" id="f-due" type="date" value="${r.due_date ? fmtDate(r.due_date) : ''}">
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group">
+        <label>Description</label>
+        <input class="form-control" id="f-description" value="${r.description||''}">
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group">
+        <label>Notes</label>
+        <input class="form-control" id="f-notes" value="${r.notes||''}">
+      </div>
+    </div>`;
+}
+
+function collectLentOwedForm(type) {
+  const isLent = type === 'lent';
+  const obj = {
+    currency: v('f-currency'),
+    date: v('f-date'),
+    description: v('f-description'),
+    amount_repaid: parseFloat(v('f-repaid')) || 0,
+    due_date: v('f-due') || null,
+    notes: v('f-notes')
+  };
+  if (isLent) {
+    obj.borrower = v('f-person');
+    obj.amount_lent = parseFloat(v('f-amount')) || 0;
+  } else {
+    obj.lender = v('f-person');
+    obj.amount_owed = parseFloat(v('f-amount')) || 0;
+  }
+  return obj;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// HISTORY PAGE
+// ══════════════════════════════════════════════════════════════════
+function renderHistory() {
+  const tbody = document.getElementById('history-tbody');
+  tbody.innerHTML = state.history.map((r, i) => `
+    <tr>
+      <td>${fmtDate(r.date)}</td>
+      <td class="num-green">₺${fmt(r.net_worth)}</td>
+      <td>₺${fmt(r.cash)}</td>
+      <td>₺${fmt(r.owed_to_me)}</td>
+      <td class="num-red">₺${fmt(r.i_owe)}</td>
+      <td style="color:var(--text3)">${r.notes||'—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openEditHistory(${i})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteHistory(${i})">🗑</button>
+      </div></td>
+    </tr>`).join('') || '<tr><td colspan="7"><div class="empty-state">No history snapshots yet.</div></td></tr>';
+
+  renderHistoryChart();
+}
+
+function renderHistoryChart() {
+  const ctx = document.getElementById('history-chart').getContext('2d');
+  if (historyChart) historyChart.destroy();
+  const sorted = [...state.history].sort((a,b) => new Date(a.date) - new Date(b.date));
+  historyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sorted.map(r => fmtDate(r.date)),
+      datasets: [{
+        label: 'Net Worth (₺)',
+        data: sorted.map(r => r.net_worth),
+        borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.12)',
+        tension: 0.3, fill: true, pointBackgroundColor: '#f97316', pointRadius: 5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8' } }, tooltip: { callbacks: { label: ctx => ` ₺${fmt(ctx.parsed.y)}` } } },
+      scales: {
+        x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#64748b', callback: v => '₺'+fmt(v) }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+function openAddHistory() {
+  const { cash, owedToMe, iOwe, netWorth } = calcSummary();
+  showModal('Add Net Worth Snapshot', `
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px">Current values are auto-filled from the dashboard.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input class="form-control" id="f-date" type="date" value="${today()}">
+      </div>
+      <div class="form-group">
+        <label>Net Worth (₺)</label>
+        <input class="form-control" id="f-nw" type="number" value="${Math.round(netWorth)}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cash (₺)</label>
+        <input class="form-control" id="f-cash" type="number" value="${Math.round(cash)}">
+      </div>
+      <div class="form-group">
+        <label>Owed to Me (₺)</label>
+        <input class="form-control" id="f-om" type="number" value="${Math.round(owedToMe)}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>I Owe (₺)</label>
+        <input class="form-control" id="f-io" type="number" value="${Math.round(iOwe)}">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input class="form-control" id="f-notes" value="">
+      </div>
+    </div>`, (data) => {
+    state.history.push(data);
+    schedSave();
+    renderHistory();
+  });
+}
+
+function openEditHistory(i) {
+  const r = state.history[i];
+  showModal('Edit Snapshot', `
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input class="form-control" id="f-date" type="date" value="${fmtDate(r.date)}">
+      </div>
+      <div class="form-group">
+        <label>Net Worth (₺)</label>
+        <input class="form-control" id="f-nw" type="number" value="${r.net_worth||0}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cash (₺)</label>
+        <input class="form-control" id="f-cash" type="number" value="${r.cash||0}">
+      </div>
+      <div class="form-group">
+        <label>Owed to Me (₺)</label>
+        <input class="form-control" id="f-om" type="number" value="${r.owed_to_me||0}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>I Owe (₺)</label>
+        <input class="form-control" id="f-io" type="number" value="${r.i_owe||0}">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input class="form-control" id="f-notes" value="${r.notes||''}">
+      </div>
+    </div>`, (data) => {
+    state.history[i] = { ...state.history[i], ...data };
+    schedSave();
+    renderHistory();
+  });
+}
+
+function deleteHistory(i) {
+  if (!confirm('Delete this snapshot?')) return;
+  state.history.splice(i, 1);
+  schedSave();
+  renderHistory();
+}
+
+function collectHistoryForm() {
+  return {
+    date: v('f-date'),
+    net_worth: parseFloat(v('f-nw')) || 0,
+    cash: parseFloat(v('f-cash')) || 0,
+    owed_to_me: parseFloat(v('f-om')) || 0,
+    i_owe: parseFloat(v('f-io')) || 0,
+    notes: v('f-notes')
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RATES PAGE
+// ══════════════════════════════════════════════════════════════════
+function renderRates() {
+  const order = ['EUR', 'USD', 'GBP', 'MAD', 'TRY', 'DZD'];
+  document.getElementById('rates-grid').innerHTML = order.map(cur => {
+    const r = state.rates[cur] || { symbol: cur, rate: 1 };
+    const isDerived = cur === 'DZD' || cur === 'TRY';
+    const eurRate = state.rates['EUR']?.rate || 53.28;
+    const dzdCalc = (eurRate / 280).toFixed(4);
+    return `
+      <div class="rate-card ${isDerived ? 'derived' : ''}">
+        <div class="rc-cur"><span class="rc-sym">${r.symbol || cur}</span>${cur}</div>
+        <div class="rc-label">1 ${cur} = ? ₺ (TRY)</div>
+        <input class="form-control" id="rate-${cur}" type="number" step="0.001"
+          value="${cur === 'DZD' ? dzdCalc : (r.rate || 0)}"
+          ${isDerived ? 'readonly style="color:var(--text3)"' : ''}
+          ${cur === 'EUR' ? 'oninput="updateDzdRate()"' : ''}>
+        ${isDerived ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${cur==='TRY'?'Base currency (always 1)':'Auto = EUR rate ÷ 280'}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function updateDzdRate() {
+  const eurRate = parseFloat(document.getElementById('rate-EUR')?.value) || 0;
+  const dzdInput = document.getElementById('rate-DZD');
+  if (dzdInput) dzdInput.value = (eurRate / 280).toFixed(4);
+}
+
+function saveRatesNow() {
+  const order = ['EUR', 'USD', 'GBP', 'MAD', 'TRY', 'DZD'];
+  order.forEach(cur => {
+    const el = document.getElementById('rate-' + cur);
+    if (el && state.rates[cur]) {
+      state.rates[cur].rate = parseFloat(el.value) || state.rates[cur].rate;
+    }
+  });
+  schedSave();
+  showToast('Exchange rates saved ✓');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════════════════════
+function showModal(title, bodyHTML, onSave) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal-overlay').classList.add('open');
+  modalSaveFn = onSave;
+  setTimeout(() => {
+    const first = document.querySelector('#modal-body input, #modal-body select');
+    if (first) first.focus();
+  }, 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  modalSaveFn = null;
+}
+
+function modalSave() {
+  if (!modalSaveFn) return;
+  let data;
+  const title = document.getElementById('modal-title').textContent;
+  if (title.includes('Account')) data = collectAccountForm();
+  else if (title.includes('Lent') || title.includes('Lending')) data = collectLentOwedForm('lent');
+  else if (title.includes('Debt')) data = collectLentOwedForm('owed');
+  else if (title.includes('Snapshot')) data = collectHistoryForm();
+  else return;
+  modalSaveFn(data);
+  closeModal();
+}
+
+// Close modal on overlay click
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// Enter key in modal
+document.getElementById('modal-overlay').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') modalSave();
+  if (e.key === 'Escape') closeModal();
+});
+
+// ══════════════════════════════════════════════════════════════════
+// SAVE
+// ══════════════════════════════════════════════════════════════════
+function schedSave() {
+  setSaveStatus('Saving...');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, 1200);
+}
+
+async function doSave() {
+  if (decoyMode) { setSaveStatus(''); return; }
+  try {
+    const payload = { accounts: state.accounts, lent: state.lent, owed: state.owed, rates: state.rates, history: state.history };
+    await gsWriteAll(payload);
+    setSaveStatus('✓ Saved to Sheet');
+    setTimeout(() => setSaveStatus(''), 3000);
+  } catch (e) {
+    setSaveStatus('⚠ Save failed');
+    showToast('Save error: ' + e.message, true);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════
+function v(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function setSaveStatus(msg) {
+  document.getElementById('save-status').textContent = msg;
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = '', 3000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIN — BROWSER FALLBACK HELPERS
+// ══════════════════════════════════════════════════════════════════
+function _simpleHash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
+  return 'p' + (h >>> 0).toString(16);
+}
+const PIN = {
+  hasPin:   async () => window.electronAPI ? window.electronAPI.hasPin()        : !!localStorage.getItem('_ph'),
+  checkPin: async (p) => window.electronAPI ? window.electronAPI.checkPin(p)   : localStorage.getItem('_ph') === _simpleHash(p),
+  setPin:   async (p) => { if (window.electronAPI) return window.electronAPI.setPin(p); localStorage.setItem('_ph', _simpleHash(p)); return true; },
+  clearPin: async ()  => { if (window.electronAPI) return window.electronAPI.clearPin(); localStorage.removeItem('_ph'); return true; },
+};
+
+// ══════════════════════════════════════════════════════════════════
+// PIN — LOCK SCREEN
+// ══════════════════════════════════════════════════════════════════
+let pinBuffer = '';
+
+async function initPinLock() {
+  const has = await PIN.hasPin();
+  if (has) {
+    document.getElementById('pin-screen').classList.add('visible');
+    document.getElementById('lock-btn').style.display = 'block';
+  } else {
+    await gateGoogleThenLoad();
+  }
+}
+
+async function gateGoogleThenLoad() {
+  if (gisIsSignedIn()) {
+    await loadData();
+  } else {
+    document.getElementById('google-screen').style.display = 'flex';
+  }
+}
+
+async function doGoogleSignIn() {
+  const btn = document.getElementById('google-signin-btn');
+  const statusEl = document.getElementById('google-signin-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Opening Google sign-in…';
+  try {
+    await gisRequestToken('consent');
+    statusEl.textContent = 'Signed in ✓';
+    document.getElementById('google-screen').style.display = 'none';
+    await loadData();
+    showToast('Connected to Google Sheets ☁️');
+  } catch (e) {
+    statusEl.textContent = 'Sign-in failed: ' + (e.error || e.message || 'unknown error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function pinKey(k) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  updatePinDots(pinBuffer.length, 'pd');
+  if (pinBuffer.length === 4) setTimeout(submitPin, 120);
+}
+
+function pinDel() {
+  if (!pinBuffer.length) return;
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots(pinBuffer.length, 'pd');
+}
+
+function updatePinDots(n, prefix) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById(prefix + i);
+    if (d) d.classList.toggle('filled', i < n);
+  }
+}
+
+let decoyMode = false;
+
+async function submitPin() {
+  const ok = await PIN.checkPin(pinBuffer);
+  pinBuffer = '';
+  updatePinDots(0, 'pd');
+  if (ok) {
+    decoyMode = false;
+    document.getElementById('pin-screen').classList.remove('visible');
+    document.getElementById('pin-error').textContent = '';
+    await gateGoogleThenLoad();
+  } else {
+    enterDecoyMode();
+  }
+}
+
+function enterDecoyMode() {
+  decoyMode = true;
+  document.getElementById('pin-screen').classList.remove('visible');
+  document.getElementById('pin-error').textContent = '';
+  state = { accounts: [], lent: [], owed: [], history: [], rates: state.rates || {} };
+  setSaveStatus('');
+  navigate('dashboard');
+}
+
+function lockApp() {
+  PIN.hasPin().then(has => {
+    if (!has) { showToast('No PIN set. Go to Security to set one.', true); return; }
+    pinBuffer = '';
+    updatePinDots(0, 'pd');
+    document.getElementById('pin-error').textContent = '';
+    document.getElementById('pin-screen').classList.add('visible');
+  });
+}
+
+let _logoTaps = [];
+function pinLogoTap() {
+  const now = Date.now();
+  _logoTaps.push(now);
+  _logoTaps = _logoTaps.filter(t => now - t < 2000);
+  if (_logoTaps.length >= 5) {
+    _logoTaps = [];
+    const link = document.getElementById('pin-forgot-link');
+    link.style.display = 'block';
+    clearTimeout(window._forgotHideTimer);
+    window._forgotHideTimer = setTimeout(() => { link.style.display = 'none'; }, 5000);
+  }
+}
+
+function pinForgot() {
+  if (!confirm('Reset PIN? The app will remove the current PIN. You can set a new one in Security settings.')) return;
+  PIN.clearPin().then(() => {
+    document.getElementById('pin-screen').classList.remove('visible');
+    document.getElementById('lock-btn').style.display = 'none';
+    pinBuffer = '';
+    showToast('PIN removed. Set a new one in Security.');
+    renderSecurity();
+  });
+}
+
+// keyboard support on lock screen
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('pin-screen').classList.contains('visible')) return;
+  if (e.key >= '0' && e.key <= '9') pinKey(e.key);
+  if (e.key === 'Backspace') pinDel();
+});
+
+// ══════════════════════════════════════════════════════════════════
+// PIN — SECURITY PAGE
+// ══════════════════════════════════════════════════════════════════
+let setupStep = 'new';   // 'new' | 'confirm'
+let setupFirst = '';
+let setupBuffer = '';
+
+async function renderSecurity() {
+  const has = await PIN.hasPin();
+  const badge = document.getElementById('pin-status-badge');
+  const actions = document.getElementById('security-actions');
+  badge.className = 'pin-status-badge ' + (has ? 'pin-status-on' : 'pin-status-off');
+  badge.innerHTML = has ? '🔒 PIN is active' : '🔓 No PIN set';
+  if (has) {
+    actions.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="startSetup('change')">🔁 Change PIN</button>
+        <button class="btn btn-danger" onclick="removePin()">🗑 Remove PIN</button>
+      </div>`;
+  } else {
+    actions.innerHTML = `<button class="btn btn-primary" onclick="startSetup('new')">🔒 Set a PIN</button>`;
+  }
+}
+
+function startSetup(mode) {
+  setupStep = 'new';
+  setupFirst = '';
+  setupBuffer = '';
+  updatePinDots(0, 'spd');
+  document.getElementById('setup-error').textContent = '';
+  document.getElementById('setup-step-label').textContent = mode === 'change' ? 'New PIN' : 'Choose PIN';
+  document.getElementById('setup-title').textContent = mode === 'change' ? 'Change PIN' : 'Set a new PIN';
+  document.getElementById('pin-setup-area').style.display = 'block';
+  document.getElementById('pin-setup-area').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelSetup() {
+  document.getElementById('pin-setup-area').style.display = 'none';
+  setupBuffer = ''; setupFirst = ''; setupStep = 'new';
+  updatePinDots(0, 'spd');
+}
+
+function setupKey(k) {
+  if (setupBuffer.length >= 4) return;
+  setupBuffer += k;
+  updatePinDots(setupBuffer.length, 'spd');
+  if (setupBuffer.length === 4) setTimeout(processSetup, 120);
+}
+
+function setupDel() {
+  if (!setupBuffer.length) return;
+  setupBuffer = setupBuffer.slice(0, -1);
+  updatePinDots(setupBuffer.length, 'spd');
+}
+
+async function processSetup() {
+  if (decoyMode) { cancelSetup(); return; }
+  if (setupStep === 'new') {
+    setupFirst = setupBuffer;
+    setupBuffer = '';
+    updatePinDots(0, 'spd');
+    setupStep = 'confirm';
+    document.getElementById('setup-step-label').textContent = 'Confirm PIN';
+    document.getElementById('setup-error').textContent = '';
+  } else {
+    if (setupBuffer === setupFirst) {
+      await PIN.setPin(setupBuffer);
+      cancelSetup();
+      document.getElementById('lock-btn').style.display = 'block';
+      showToast('PIN set successfully 🔒');
+      renderSecurity();
+    } else {
+      setupBuffer = ''; setupFirst = ''; setupStep = 'new';
+      updatePinDots(0, 'spd');
+      document.getElementById('setup-step-label').textContent = 'Choose PIN';
+      document.getElementById('setup-error').textContent = 'PINs did not match. Try again.';
+    }
+  }
+}
+
+async function removePin() {
+  if (decoyMode) return;
+  if (!confirm('Remove PIN protection? The app will no longer ask for a PIN on launch.')) return;
+  await PIN.clearPin();
+  document.getElementById('lock-btn').style.display = 'none';
+  showToast('PIN removed.');
+  renderSecurity();
+}
+</script>
+</body>
+</html>
