@@ -277,6 +277,59 @@
   .pin-setup-key:active { background: var(--accent); border-color: var(--accent); transform: scale(0.92); }
   .pin-setup-key-del { font-size: 14px; background: transparent; border-color: transparent; color: var(--text2); }
   .pin-setup-label { font-size: 12px; font-weight: 700; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px; }
+
+  /* ── BOTTOM TAB BAR (mobile only) ── */
+  #bottom-tabs { display: none; }
+
+  /* ── MOBILE RESPONSIVE ── */
+  @media (max-width: 768px) {
+    #sidebar { display: none; }
+    #main { margin-left: 0; padding-bottom: 76px; }
+    .content { padding: 16px 14px; }
+    .topbar { padding: 14px 16px; }
+    .topbar h2 { font-size: 17px; }
+    .topbar-actions .btn span { display: none; }
+
+    /* grids that were multi-column become 1-2 cols */
+    .summary-grid, .stats-grid, [class*="grid"] { grid-template-columns: repeat(2, 1fr) !important; }
+    .dashboard-hero, .net-worth-card { grid-template-columns: 1fr !important; }
+
+    /* tables become stacked cards using data-label */
+    .table-wrap table thead { display: none; }
+    .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td { display: block; width: 100%; }
+    .table-wrap table { border: none; }
+    .table-wrap tr {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .table-wrap td {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 0; border: none !important; text-align: right;
+    }
+    .table-wrap td::before {
+      content: attr(data-label); font-size: 11px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 0.5px; text-align: left;
+    }
+    .table-wrap td:empty, .table-wrap td:not([data-label])::before { content: none; }
+
+    #bottom-tabs {
+      display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      background: var(--sidebar); border-top: 1px solid var(--border);
+      padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+      justify-content: space-around;
+    }
+    .tab-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      color: var(--text3); font-size: 10px; font-weight: 700; cursor: pointer;
+      padding: 4px 8px; border-radius: 10px; transition: color 0.15s;
+    }
+    .tab-item .tab-icon { font-size: 19px; }
+    .tab-item.active { color: var(--accent); }
+  }
+
+  @media (min-width: 769px) {
+    #bottom-tabs { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -317,6 +370,25 @@
   <div class="sidebar-bottom">
     <div class="excel-badge"><span class="dot"></span> Synced with Excel</div>
     <button class="btn btn-secondary" id="lock-btn" onclick="lockApp()" style="width:100%;margin-top:10px;display:none">🔒 Lock App</button>
+  </div>
+</nav>
+
+<!-- MOBILE BOTTOM TAB BAR -->
+<nav id="bottom-tabs">
+  <div class="tab-item active" data-page="dashboard" onclick="navigate('dashboard')">
+    <span class="tab-icon">📊</span><span class="tab-label">Dashboard</span>
+  </div>
+  <div class="tab-item" data-page="accounts" onclick="navigate('accounts')">
+    <span class="tab-icon">🏦</span><span class="tab-label">Accounts</span>
+  </div>
+  <div class="tab-item" data-page="lent" onclick="navigate('lent')">
+    <span class="tab-icon">🤝</span><span class="tab-label">Loans</span>
+  </div>
+  <div class="tab-item" data-page="history" onclick="navigate('history')">
+    <span class="tab-icon">📈</span><span class="tab-label">Analytics</span>
+  </div>
+  <div class="tab-item" data-page="security" onclick="navigate('security')">
+    <span class="tab-icon">🔒</span><span class="tab-label">Security</span>
   </div>
 </nav>
 
@@ -782,6 +854,10 @@ function navigate(page) {
     if (n.getAttribute('onclick') === `navigate('${page}')`) n.classList.add('active');
   });
   document.getElementById('page-title').textContent = PAGE_TITLES[page] || page;
+
+  const tabMap = { dashboard: 'dashboard', accounts: 'accounts', lent: 'lent', owed: 'lent', history: 'history', rates: 'history', security: 'security' };
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.page === tabMap[page]));
+
   renderCurrentPage();
 }
 
@@ -920,11 +996,11 @@ function renderDashboard() {
   const accRows = state.accounts.map(a => {
     const base = toBase(a.balance, a.currency);
     return `<tr>
-      <td>${a.account}</td>
-      <td>${typeBadge(a.type)}</td>
-      <td>${a.currency}</td>
-      <td>${fmtCur(a.balance, a.currency)}</td>
-      <td class="num-green">₺${fmt(base)}</td>
+      <td data-label="Account">${a.account}</td>
+      <td data-label="Type">${typeBadge(a.type)}</td>
+      <td data-label="Currency">${a.currency}</td>
+      <td data-label="Balance">${fmtCur(a.balance, a.currency)}</td>
+      <td data-label="in ₺" class="num-green">₺${fmt(base)}</td>
     </tr>`;
   }).join('');
   document.getElementById('dash-accounts-table').innerHTML = `
@@ -939,9 +1015,9 @@ function renderDashboard() {
   const lentRows = openLent.map(r => {
     const out = (r.amount_lent||0) - (r.amount_repaid||0);
     return `<tr>
-      <td><strong>${r.borrower}</strong></td>
-      <td>${fmtCur(out, r.currency)}</td>
-      <td>${statusBadge(getStatus(r.amount_lent, r.amount_repaid), r.overdue)}</td>
+      <td data-label="Borrower"><strong>${r.borrower}</strong></td>
+      <td data-label="Outstanding">${fmtCur(out, r.currency)}</td>
+      <td data-label="Status">${statusBadge(getStatus(r.amount_lent, r.amount_repaid), r.overdue)}</td>
     </tr>`;
   }).join('');
   document.getElementById('dash-lent-table').innerHTML = `
@@ -953,9 +1029,9 @@ function renderDashboard() {
   const owedRows = openOwed.map(r => {
     const out = (r.amount_owed||0) - (r.amount_repaid||0);
     return `<tr>
-      <td><strong>${r.lender}</strong></td>
-      <td>${fmtCur(out, r.currency)}</td>
-      <td>${statusBadge(getStatus(r.amount_owed, r.amount_repaid), r.overdue)}</td>
+      <td data-label="Lender"><strong>${r.lender}</strong></td>
+      <td data-label="Outstanding">${fmtCur(out, r.currency)}</td>
+      <td data-label="Status">${statusBadge(getStatus(r.amount_owed, r.amount_repaid), r.overdue)}</td>
     </tr>`;
   }).join('');
   document.getElementById('dash-owed-table').innerHTML = `
@@ -1002,12 +1078,12 @@ function renderAccounts() {
   tbody.innerHTML = state.accounts.map((a, i) => {
     const base = toBase(a.balance, a.currency);
     return `<tr>
-      <td><strong>${a.account || '—'}</strong></td>
-      <td>${typeBadge(a.type)}</td>
-      <td>${a.currency}</td>
-      <td>${fmtCur(a.balance, a.currency)}</td>
-      <td class="num-green">₺${fmt(base)}</td>
-      <td style="color:var(--text3)">${a.notes || '—'}</td>
+      <td data-label="Account"><strong>${a.account || '—'}</strong></td>
+      <td data-label="Type">${typeBadge(a.type)}</td>
+      <td data-label="Currency">${a.currency}</td>
+      <td data-label="Balance">${fmtCur(a.balance, a.currency)}</td>
+      <td data-label="Value (₺)" class="num-green">₺${fmt(base)}</td>
+      <td data-label="Notes" style="color:var(--text3)">${a.notes || '—'}</td>
       <td><div class="td-actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditAccount(${i})">✏️ Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteAccount(${i})">🗑</button>
@@ -1102,17 +1178,17 @@ function renderLent() {
     const outBase = toBase(Math.max(out,0), r.currency);
     const status = getStatus(r.amount_lent, r.amount_repaid);
     return `<tr>
-      <td>${fmtDate(r.date)}</td>
-      <td><strong>${r.borrower||'—'}</strong></td>
-      <td style="color:var(--text2)">${r.description||'—'}</td>
-      <td>${r.currency}</td>
-      <td>${fmtCur(r.amount_lent, r.currency)}</td>
-      <td style="color:var(--text3)">${fmtCur(r.amount_repaid||0, r.currency)}</td>
-      <td class="${out>0?'num-gold':''}">${fmtCur(Math.max(out,0), r.currency)}</td>
-      <td class="num-gold">₺${fmt(outBase)}</td>
-      <td>${statusBadge(status, r.overdue)}</td>
-      <td style="color:var(--text3)">${fmtDate(r.due_date)}</td>
-      <td style="color:var(--text3)">${r.notes||'—'}</td>
+      <td data-label="Date">${fmtDate(r.date)}</td>
+      <td data-label="Borrower"><strong>${r.borrower||'—'}</strong></td>
+      <td data-label="Description" style="color:var(--text2)">${r.description||'—'}</td>
+      <td data-label="Currency">${r.currency}</td>
+      <td data-label="Lent">${fmtCur(r.amount_lent, r.currency)}</td>
+      <td data-label="Repaid" style="color:var(--text3)">${fmtCur(r.amount_repaid||0, r.currency)}</td>
+      <td data-label="Outstanding" class="${out>0?'num-gold':''}">${fmtCur(Math.max(out,0), r.currency)}</td>
+      <td data-label="Outstanding (₺)" class="num-gold">₺${fmt(outBase)}</td>
+      <td data-label="Status">${statusBadge(status, r.overdue)}</td>
+      <td data-label="Due Date" style="color:var(--text3)">${fmtDate(r.due_date)}</td>
+      <td data-label="Notes" style="color:var(--text3)">${r.notes||'—'}</td>
       <td><div class="td-actions">
         <button class="btn btn-sm btn-success" onclick="markRepaid('lent',${i})" title="Mark repaid">✅</button>
         <button class="btn btn-sm btn-secondary" onclick="openEditLent(${i})">✏️</button>
@@ -1189,17 +1265,17 @@ function renderOwed() {
     const outBase = toBase(Math.max(out,0), r.currency);
     const status = getStatus(r.amount_owed, r.amount_repaid);
     return `<tr>
-      <td>${fmtDate(r.date)}</td>
-      <td><strong>${r.lender||'—'}</strong></td>
-      <td style="color:var(--text2)">${r.description||'—'}</td>
-      <td>${r.currency}</td>
-      <td>${fmtCur(r.amount_owed, r.currency)}</td>
-      <td style="color:var(--text3)">${fmtCur(r.amount_repaid||0, r.currency)}</td>
-      <td class="${out>0?'num-red':''}">${fmtCur(Math.max(out,0), r.currency)}</td>
-      <td class="num-red">₺${fmt(outBase)}</td>
-      <td>${statusBadge(status, r.overdue)}</td>
-      <td style="color:var(--text3)">${fmtDate(r.due_date)}</td>
-      <td style="color:var(--text3)">${r.notes||'—'}</td>
+      <td data-label="Date">${fmtDate(r.date)}</td>
+      <td data-label="Lender"><strong>${r.lender||'—'}</strong></td>
+      <td data-label="Description" style="color:var(--text2)">${r.description||'—'}</td>
+      <td data-label="Currency">${r.currency}</td>
+      <td data-label="Owed">${fmtCur(r.amount_owed, r.currency)}</td>
+      <td data-label="Repaid" style="color:var(--text3)">${fmtCur(r.amount_repaid||0, r.currency)}</td>
+      <td data-label="Outstanding" class="${out>0?'num-red':''}">${fmtCur(Math.max(out,0), r.currency)}</td>
+      <td data-label="Outstanding (₺)" class="num-red">₺${fmt(outBase)}</td>
+      <td data-label="Status">${statusBadge(status, r.overdue)}</td>
+      <td data-label="Due Date" style="color:var(--text3)">${fmtDate(r.due_date)}</td>
+      <td data-label="Notes" style="color:var(--text3)">${r.notes||'—'}</td>
       <td><div class="td-actions">
         <button class="btn btn-sm btn-success" onclick="markRepaid('owed',${i})" title="Mark repaid">✅</button>
         <button class="btn btn-sm btn-secondary" onclick="openEditOwed(${i})">✏️</button>
@@ -1324,12 +1400,12 @@ function renderHistory() {
   const tbody = document.getElementById('history-tbody');
   tbody.innerHTML = state.history.map((r, i) => `
     <tr>
-      <td>${fmtDate(r.date)}</td>
-      <td class="num-green">₺${fmt(r.net_worth)}</td>
-      <td>₺${fmt(r.cash)}</td>
-      <td>₺${fmt(r.owed_to_me)}</td>
-      <td class="num-red">₺${fmt(r.i_owe)}</td>
-      <td style="color:var(--text3)">${r.notes||'—'}</td>
+      <td data-label="Date">${fmtDate(r.date)}</td>
+      <td data-label="Net Worth" class="num-green">₺${fmt(r.net_worth)}</td>
+      <td data-label="Cash">₺${fmt(r.cash)}</td>
+      <td data-label="Owed to Me">₺${fmt(r.owed_to_me)}</td>
+      <td data-label="I Owe" class="num-red">₺${fmt(r.i_owe)}</td>
+      <td data-label="Notes" style="color:var(--text3)">${r.notes||'—'}</td>
       <td><div class="td-actions">
         <button class="btn btn-sm btn-secondary" onclick="openEditHistory(${i})">✏️</button>
         <button class="btn btn-sm btn-danger" onclick="deleteHistory(${i})">🗑</button>
