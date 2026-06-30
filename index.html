@@ -624,7 +624,8 @@ function gisRequestToken(promptMode) {
     gisTokenClient.callback = (resp) => {
       if (resp.error) { reject(resp); return; }
       gisAccessToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in * 1000) };
-      sessionStorage.setItem('gis_token', JSON.stringify(gisAccessToken));
+      localStorage.setItem('gis_token', JSON.stringify(gisAccessToken));
+      localStorage.setItem('gis_consented', '1');
       resolve(gisAccessToken.token);
     };
     gisTokenClient.requestAccessToken({ prompt: promptMode });
@@ -633,19 +634,18 @@ function gisRequestToken(promptMode) {
 
 async function gisGetToken(interactive) {
   if (!gisAccessToken) {
-    const cached = sessionStorage.getItem('gis_token');
+    const cached = localStorage.getItem('gis_token');
     if (cached) gisAccessToken = JSON.parse(cached);
   }
   if (gisAccessToken && gisAccessToken.expiresAt - 60000 > Date.now()) return gisAccessToken.token;
+  // token missing/expired: try a silent refresh first (works if the Google session is still active),
+  // only fall back to the full consent popup if that fails.
   try { return await gisRequestToken(''); }
   catch (e) { if (!interactive) throw e; return await gisRequestToken('consent'); }
 }
 
 function gisIsSignedIn() {
-  const cached = sessionStorage.getItem('gis_token');
-  if (!cached) return false;
-  const t = JSON.parse(cached);
-  return t.expiresAt > Date.now();
+  return localStorage.getItem('gis_consented') === '1';
 }
 
 async function gsFetch(path, opts = {}) {
