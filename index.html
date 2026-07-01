@@ -1362,13 +1362,14 @@ function accountCurrency(name) {
 }
 
 function accountsPreferred() {
-  const pref = (name) => {
-    const n = (name || '').toLowerCase();
-    if (n.includes('ziraat')) return 0;
-    if (n.includes('kuwait')) return 1;
-    return 2;
+  const pref = (a) => {
+    const n = (a.account || '').toLowerCase();
+    if (/zira/.test(n) && a.currency === 'TRY') return 0;
+    if (/kuw/.test(n) && a.currency === 'TRY') return 1;
+    if (a.currency === 'TRY') return 2;
+    return 3;
   };
-  return [...state.accounts].sort((a, b) => pref(a.account) - pref(b.account));
+  return [...state.accounts].sort((a, b) => pref(a) - pref(b));
 }
 
 function applyTxnToBalance(txn, sign) {
