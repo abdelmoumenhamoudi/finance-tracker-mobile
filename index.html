@@ -295,8 +295,19 @@
     .topbar h2 { font-size: 17px; }
     .topbar-actions .btn span { display: none; }
 
-    /* grids that were multi-column become 1-2 cols */
-    .summary-grid, .stats-grid, [class*="grid"] { grid-template-columns: repeat(2, 1fr) !important; }
+    /* small stat tiles stay 2-up, everything else stacks to 1 column */
+    .summary-grid, .stats-grid, .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+    .grid-2, .grid-2-1, #dash-tables, #dash-donut-card, .chart-card, .rates-grid { grid-template-columns: 1fr !important; }
+
+    /* card text needs room to breathe when stacked at full width */
+    .table-wrap tr { padding: 16px; }
+    .table-wrap td { font-size: 13px; }
+    .table-wrap td strong { font-size: 14px; }
+    .card, .security-section { padding: 16px !important; }
+
+    .section-header { flex-wrap: wrap; gap: 8px; }
+    .section-header .card-title { font-size: 14px; flex: 1 1 100%; }
+    .section-header .btn-sm { font-size: 11px; padding: 6px 10px; }
     .dashboard-hero, .net-worth-card { grid-template-columns: 1fr !important; }
 
     /* tables become stacked cards using data-label */
