@@ -285,8 +285,11 @@
   /* ── MOBILE RESPONSIVE ── */
   @media (max-width: 768px) {
     #sidebar { display: none; }
-    #main { margin-left: 0; padding-bottom: 76px; }
-    .content { padding: 16px 14px; }
+    #main { margin-left: 0; padding-bottom: 76px; min-width: 0; width: 100%; }
+    .content { padding: 16px 14px; min-width: 0; overflow-x: hidden; }
+    .grid-4, .grid-2, .grid-2-1, .summary-grid, .stats-grid, [class*="grid"] { min-width: 0; }
+    .grid-4 > *, .grid-2 > *, .grid-2-1 > *, [class*="grid"] > * { min-width: 0; }
+    .table-wrap { min-width: 0; overflow-x: hidden; }
     .form-control, select.form-control, input, select, textarea { font-size: 16px !important; }
     .topbar { padding: 14px 16px; }
     .topbar h2 { font-size: 17px; }
