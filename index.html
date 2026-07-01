@@ -1361,11 +1361,22 @@ function accountCurrency(name) {
   return a ? a.currency : 'TRY';
 }
 
+function accountsPreferred() {
+  const pref = (name) => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('ziraat')) return 0;
+    if (n.includes('kuwait')) return 1;
+    return 2;
+  };
+  return [...state.accounts].sort((a, b) => pref(a.account) - pref(b.account));
+}
+
 function applyTxnToBalance(txn, sign) {
   const acc = state.accounts.find(a => a.account === txn.account);
   if (!acc) return;
   const dir = txn.type === 'income' ? 1 : -1;
-  acc.balance = (Number(acc.balance) || 0) + dir * (Number(txn.amount) || 0) * sign;
+  const inAccountCur = toBase(txn.amount, txn.currency) / (getRate(acc.currency) || 1);
+  acc.balance = (Number(acc.balance) || 0) + dir * inAccountCur * sign;
 }
 
 function renderTransactions() {
@@ -1396,7 +1407,8 @@ function renderTransactions() {
 }
 
 function transactionForm(t) {
-  const accountOptions = state.accounts.map(a => `<option ${t.account===a.account?'selected':''}>${a.account}</option>`).join('');
+  const cur = t.currency || 'TRY';
+  const accountOptions = accountsPreferred().map(a => `<option ${t.account===a.account?'selected':''}>${a.account} (${a.currency})</option>`).join('');
   return `
     <div class="form-row">
       <div class="form-group">
@@ -1413,21 +1425,29 @@ function transactionForm(t) {
     </div>
     <div class="form-row">
       <div class="form-group">
+        <label>Currency</label>
+        <select class="form-control" id="f-txn-currency">
+          ${CURRENCIES.map(c=>`<option ${cur===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
         <label>Account</label>
         <select class="form-control" id="f-txn-account">${accountOptions || '<option>No accounts — add one first</option>'}</select>
       </div>
+    </div>
+    <div class="form-row">
       <div class="form-group">
         <label>Category</label>
         <select class="form-control" id="f-txn-category">
           ${CATEGORIES.map(c=>`<option ${t.category===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
-    </div>
-    <div class="form-row">
       <div class="form-group">
         <label>Date</label>
         <input class="form-control" id="f-txn-date" type="date" value="${t.date||today()}">
       </div>
+    </div>
+    <div class="form-row full">
       <div class="form-group">
         <label>Note</label>
         <input class="form-control" id="f-txn-note" value="${t.note||''}">
@@ -1436,10 +1456,10 @@ function transactionForm(t) {
 }
 
 function collectTransactionForm() {
-  const account = v('f-txn-account');
+  const account = v('f-txn-account').replace(/ \([A-Z]{3}\)$/, '');
   return {
     type: v('f-txn-type'), amount: parseFloat(v('f-txn-amount')) || 0,
-    account, currency: accountCurrency(account),
+    account, currency: v('f-txn-currency') || 'TRY',
     category: v('f-txn-category'), date: v('f-txn-date') || today(), note: v('f-txn-note'),
   };
 }
@@ -1505,7 +1525,8 @@ function renderRecurring() {
 }
 
 function recurringForm(r) {
-  const accountOptions = state.accounts.map(a => `<option ${r.account===a.account?'selected':''}>${a.account}</option>`).join('');
+  const cur = r.currency || 'TRY';
+  const accountOptions = accountsPreferred().map(a => `<option ${r.account===a.account?'selected':''}>${a.account} (${a.currency})</option>`).join('');
   return `
     <div class="form-row">
       <div class="form-group">
@@ -1526,17 +1547,25 @@ function recurringForm(r) {
         <input class="form-control" id="f-rec-amount" type="number" step="0.01" value="${r.amount||''}">
       </div>
       <div class="form-group">
-        <label>Account</label>
-        <select class="form-control" id="f-rec-account">${accountOptions || '<option>No accounts</option>'}</select>
+        <label>Currency</label>
+        <select class="form-control" id="f-rec-currency">
+          ${CURRENCIES.map(c=>`<option ${cur===c?'selected':''}>${c}</option>`).join('')}
+        </select>
       </div>
     </div>
     <div class="form-row">
+      <div class="form-group">
+        <label>Account</label>
+        <select class="form-control" id="f-rec-account">${accountOptions || '<option>No accounts</option>'}</select>
+      </div>
       <div class="form-group">
         <label>Category</label>
         <select class="form-control" id="f-rec-category">
           ${CATEGORIES.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
+    </div>
+    <div class="form-row full">
       <div class="form-group">
         <label>Day of month (1–28)</label>
         <input class="form-control" id="f-rec-day" type="number" min="1" max="28" value="${r.day||1}">
@@ -1545,12 +1574,12 @@ function recurringForm(r) {
 }
 
 function collectRecurringForm() {
-  const account = v('f-rec-account');
+  const account = v('f-rec-account').replace(/ \([A-Z]{3}\)$/, '');
   let day = parseInt(v('f-rec-day')) || 1;
   day = Math.min(28, Math.max(1, day));
   return {
     name: v('f-rec-name'), type: v('f-rec-type'), amount: parseFloat(v('f-rec-amount')) || 0,
-    account, currency: accountCurrency(account), category: v('f-rec-category'),
+    account, currency: v('f-rec-currency') || 'TRY', category: v('f-rec-category'),
     day, last_applied: '',
   };
 }
