@@ -1685,9 +1685,26 @@ function autoLogHistory() {
   else state.history.push(entry);
 }
 
+// Pulls the latest history from the sheet and folds in this device's today-entry,
+// so a save from one device doesn't clobber a point added by the other.
+async function mergeRemoteHistory() {
+  try {
+    const remote = await gsReadAll();
+    const merged = [...(remote.history || [])];
+    const t = today();
+    const localToday = state.history.find(h => h.date === t);
+    if (localToday) {
+      const idx = merged.findIndex(h => h.date === t);
+      if (idx >= 0) merged[idx] = localToday; else merged.push(localToday);
+    }
+    state.history = merged;
+  } catch (e) { /* offline or fetch failed: fall back to local history as-is */ }
+}
+
 async function doSave() {
   if (decoyMode) { setSaveStatus(''); return; }
   try {
+    await mergeRemoteHistory();
     const payload = { accounts: state.accounts, lent: state.lent, owed: state.owed, rates: state.rates, history: state.history };
     await gsWriteAll(payload);
     setSaveStatus('✓ Saved to Sheet');
