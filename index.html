@@ -347,6 +347,33 @@
 
   @media (min-width: 769px) {
     #bottom-tabs { display: none !important; }
+    #quick-fab { display: none !important; }
+  }
+
+  /* More menu (mobile) */
+  .more-menu { display: flex; flex-direction: column; }
+  .more-item {
+    display: flex; align-items: center; gap: 12px; padding: 15px 6px;
+    border-bottom: 1px solid var(--border); font-size: 15px; font-weight: 600;
+    color: var(--text); cursor: pointer;
+  }
+  .more-item:last-child { border-bottom: none; }
+  .more-item .icon { font-size: 19px; width: 26px; text-align: center; }
+
+  /* Floating quick-add buttons */
+  #quick-fab { display: none; }
+  @media (max-width: 768px) {
+    #quick-fab {
+      display: flex; flex-direction: column; gap: 12px;
+      position: fixed; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 95;
+    }
+    .fab {
+      width: 52px; height: 52px; border-radius: 50%; border: none; color: #fff;
+      font-size: 28px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      display: flex; align-items: center; justify-content: center; line-height: 1;
+    }
+    .fab-income { background: var(--green); }
+    .fab-expense { background: var(--red); }
   }
 </style>
 </head>
@@ -394,21 +421,27 @@
 <!-- MOBILE BOTTOM TAB BAR -->
 <nav id="bottom-tabs">
   <div class="tab-item active" data-page="dashboard" onclick="navigate('dashboard')">
-    <span class="tab-icon">📊</span><span class="tab-label">Dashboard</span>
+    <span class="tab-icon">📊</span><span class="tab-label">Home</span>
   </div>
-  <div class="tab-item" data-page="accounts" onclick="navigate('accounts')">
-    <span class="tab-icon">🏦</span><span class="tab-label">Accounts</span>
+  <div class="tab-item" data-page="transactions" onclick="navigate('transactions')">
+    <span class="tab-icon">🧾</span><span class="tab-label">Activity</span>
   </div>
-  <div class="tab-item" data-page="lent" onclick="navigate('lent')">
-    <span class="tab-icon">🤝</span><span class="tab-label">Loans</span>
+  <div class="tab-item" data-page="spending" onclick="navigate('spending')">
+    <span class="tab-icon">🍩</span><span class="tab-label">Spending</span>
   </div>
   <div class="tab-item" data-page="history" onclick="navigate('history')">
-    <span class="tab-icon">📈</span><span class="tab-label">Analytics</span>
+    <span class="tab-icon">📈</span><span class="tab-label">Trend</span>
   </div>
-  <div class="tab-item" data-page="security" onclick="navigate('security')">
-    <span class="tab-icon">🔒</span><span class="tab-label">Security</span>
+  <div class="tab-item" data-page="more" onclick="navigate('more')">
+    <span class="tab-icon">⋯</span><span class="tab-label">More</span>
   </div>
 </nav>
+
+<!-- QUICK-ADD FLOATING BUTTONS (mobile) -->
+<div id="quick-fab">
+  <button class="fab fab-expense" onclick="openAddTransaction('expense')" title="Add expense">−</button>
+  <button class="fab fab-income" onclick="openAddTransaction('income')" title="Add income">+</button>
+</div>
 
 <!-- MAIN -->
 <div id="main">
@@ -469,6 +502,90 @@
             </tr></thead>
             <tbody id="accounts-tbody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TRANSACTIONS ═══ -->
+    <div class="page" id="page-transactions">
+      <div class="section-header">
+        <h3>Transactions</h3>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-success btn-sm" onclick="openAddTransaction('income')">+ In</button>
+          <button class="btn btn-danger btn-sm" onclick="openAddTransaction('expense')">− Out</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Type</th><th>Amount</th><th>Category</th><th>Account</th><th>Note</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="transactions-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ RECURRING ═══ -->
+    <div class="page" id="page-recurring">
+      <div class="section-header">
+        <h3>Recurring Items</h3>
+        <button class="btn btn-primary btn-sm" onclick="openAddRecurring()">+ Add</button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <p style="font-size:13px;color:var(--text2);line-height:1.5">Rent, salary, subscriptions. Each time you open the app, any due this month are added automatically.</p>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Type</th><th>Amount</th><th>Category</th><th>Account</th><th>Day</th><th>Last Applied</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="recurring-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SPENDING ═══ -->
+    <div class="page" id="page-spending">
+      <div class="section-header">
+        <h3>Spending</h3>
+        <div class="filter-group" id="spending-month-filters">
+          <button class="filter-btn active" onclick="setSpendingMonth(0, this)">This Month</button>
+          <button class="filter-btn" onclick="setSpendingMonth(1, this)">Last Month</button>
+          <button class="filter-btn" onclick="setSpendingMonth(-1, this)">All</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="grid-2">
+          <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:6px">Income</div><div class="num-green" style="font-size:20px;font-weight:800" id="spending-income">₺0</div></div>
+          <div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:6px">Expenses</div><div class="num-red" style="font-size:20px;font-weight:800" id="spending-expense">₺0</div></div>
+        </div>
+      </div>
+      <div class="card chart-card" style="margin-bottom:16px">
+        <div class="card-title">Expenses by Category (₺)</div>
+        <div class="history-chart-wrap"><canvas id="spending-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Breakdown</div>
+        <div id="spending-legend"></div>
+      </div>
+    </div>
+
+    <!-- ═══ MORE MENU ═══ -->
+    <div class="page" id="page-more">
+      <div class="section-header"><h3>More</h3></div>
+      <div class="card">
+        <div class="more-menu">
+          <div class="more-item" onclick="navigate('accounts')"><span class="icon">🏦</span> Cash &amp; Accounts</div>
+          <div class="more-item" onclick="navigate('lent')"><span class="icon">💸</span> Money Lent</div>
+          <div class="more-item" onclick="navigate('owed')"><span class="icon">💳</span> Money I Owe</div>
+          <div class="more-item" onclick="navigate('recurring')"><span class="icon">🔁</span> Recurring Items</div>
+          <div class="more-item" onclick="navigate('rates')"><span class="icon">⚙️</span> Exchange Rates</div>
+          <div class="more-item" onclick="navigate('security')"><span class="icon">🔒</span> Security</div>
+          <div class="more-item" onclick="lockApp()"><span class="icon">🔓</span> Lock App</div>
         </div>
       </div>
     </div>
@@ -683,7 +800,7 @@
 // ══════════════════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════════════════
-let state = { accounts: [], lent: [], owed: [], rates: {}, history: [] };
+let state = { accounts: [], lent: [], owed: [], rates: {}, history: [], transactions: [], recurring: [] };
 let lentFilter = 'all';
 let owedFilter = 'all';
 let modalSaveFn = null;
@@ -704,6 +821,8 @@ const GS_SHEET_DEFS = {
   Owed: ['Date', 'Lender', 'Description', 'Currency', 'Amount Owed', 'Amount Repaid', 'Due Date', 'Notes'],
   History: ['Date', 'Net Worth', 'Cash', 'Owed To Me', 'I Owe', 'Notes'],
   Rates: ['Currency', 'Symbol', 'Rate'],
+  Transactions: ['Date', 'Type', 'Amount', 'Currency', 'Category', 'Account', 'Note'],
+  Recurring: ['Name', 'Type', 'Amount', 'Currency', 'Category', 'Account', 'Day', 'Last Applied'],
 };
 
 let gisTokenClient = null;
@@ -770,7 +889,7 @@ function gsRowsToObjects(headers, rows) {
 async function gsReadAll() {
   const ranges = Object.keys(GS_SHEET_DEFS).map(n => `ranges=${encodeURIComponent(n + '!A2:Z')}`).join('&');
   const res = await gsFetch(`/values:batchGet?${ranges}`);
-  const [accRows, lentRows, owedRows, histRows, rateRows] = res.valueRanges.map(r => r.values || []);
+  const [accRows, lentRows, owedRows, histRows, rateRows, txnRows, recRows] = res.valueRanges.map(r => r.values || []);
 
   const accounts = gsRowsToObjects(GS_SHEET_DEFS.Accounts, accRows).map(o => ({
     account: o['Account'], type: o['Type'], currency: o['Currency'], balance: Number(o['Balance']) || 0, notes: o['Notes'],
@@ -799,14 +918,24 @@ async function gsReadAll() {
     rates[o['Currency']] = { symbol: o['Symbol'] || o['Currency'], rate: o['Rate'] === '' ? null : Number(o['Rate']) };
   });
 
-  return { accounts, lent, owed, history, rates };
+  const transactions = gsRowsToObjects(GS_SHEET_DEFS.Transactions, txnRows).map(o => ({
+    date: o['Date'] || null, type: o['Type'] || 'expense', amount: Number(o['Amount']) || 0,
+    currency: o['Currency'], category: o['Category'] || '', account: o['Account'] || '', note: o['Note'] || '',
+  })).filter(t => t.amount);
+
+  const recurring = gsRowsToObjects(GS_SHEET_DEFS.Recurring, recRows).map(o => ({
+    name: o['Name'], type: o['Type'] || 'expense', amount: Number(o['Amount']) || 0, currency: o['Currency'],
+    category: o['Category'] || '', account: o['Account'] || '', day: Number(o['Day']) || 1, last_applied: o['Last Applied'] || '',
+  })).filter(r => r.name);
+
+  return { accounts, lent, owed, history, rates, transactions, recurring };
 }
 
 function gsObjectsToRows(headers, items, mapper) {
   return items.map(item => headers.map(h => mapper(item, h)));
 }
 
-async function gsWriteAll({ accounts, lent, owed, history, rates }) {
+async function gsWriteAll({ accounts, lent, owed, history, rates, transactions, recurring }) {
   const data = [];
   if (accounts !== undefined) data.push({ range: 'Accounts!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Accounts, accounts, (a, h) => ({
     'Account': a.account, 'Type': a.type, 'Currency': a.currency, 'Balance': a.balance, 'Notes': a.notes || '',
@@ -828,6 +957,14 @@ async function gsWriteAll({ accounts, lent, owed, history, rates }) {
       'Currency': r.cur, 'Symbol': r.symbol, 'Rate': r.rate === null || r.rate === undefined ? '' : r.rate,
     }[h] ?? '')) });
   }
+  if (transactions !== undefined) data.push({ range: 'Transactions!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Transactions, transactions, (t, h) => ({
+    'Date': t.date || '', 'Type': t.type, 'Amount': t.amount, 'Currency': t.currency,
+    'Category': t.category || '', 'Account': t.account || '', 'Note': t.note || '',
+  }[h] ?? '')) });
+  if (recurring !== undefined) data.push({ range: 'Recurring!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Recurring, recurring, (r, h) => ({
+    'Name': r.name, 'Type': r.type, 'Amount': r.amount, 'Currency': r.currency,
+    'Category': r.category || '', 'Account': r.account || '', 'Day': r.day, 'Last Applied': r.last_applied || '',
+  }[h] ?? '')) });
 
   const clearRanges = data.map(d => d.range);
   if (clearRanges.length) {
@@ -856,8 +993,10 @@ async function loadData() {
     const data = await gsReadAll();
     state = { ...state, ...data };
     dataLoaded = true;
+    if (applyDueRecurring()) { schedSave(); showToast('Applied due recurring items'); }
     renderCurrentPage();
     setSaveStatus('');
+    consumeShortcutAction();
   } catch (e) {
     dataLoaded = false;
     showToast('Failed to load data: ' + e.message, true);
@@ -867,15 +1006,29 @@ async function loadData() {
 
 async function reloadData() { await loadData(); showToast('Data refreshed'); }
 
+// Handle home-screen shortcut deep-links (?action=income|expense) once, after data is ready.
+let _shortcutConsumed = false;
+function consumeShortcutAction() {
+  if (_shortcutConsumed) return;
+  const action = new URLSearchParams(location.search).get('action');
+  if (action !== 'income' && action !== 'expense') return;
+  _shortcutConsumed = true;
+  navigate('transactions');
+  setTimeout(() => openAddTransaction(action), 150);
+}
+
 // ══════════════════════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════════════════════
 const PAGE_TITLES = {
   dashboard: 'Dashboard', accounts: 'Cash & Accounts',
+  transactions: 'Transactions', recurring: 'Recurring Items',
   lent: 'Money Lent', owed: 'Money I Owe',
-  history: 'Net Worth History', rates: 'Exchange Rates',
-  security: 'Security'
+  history: 'Net Worth History', spending: 'Spending', rates: 'Exchange Rates',
+  security: 'Security', more: 'More'
 };
+
+const CATEGORIES = ['Food', 'Bills', 'Rent', 'Transport', 'Shopping', 'Health', 'Entertainment', 'Salary', 'Gift', 'Transfer', 'Other'];
 
 let currentPage = 'dashboard';
 function navigate(page) {
@@ -888,7 +1041,8 @@ function navigate(page) {
   });
   document.getElementById('page-title').textContent = PAGE_TITLES[page] || page;
 
-  const tabMap = { dashboard: 'dashboard', accounts: 'accounts', lent: 'lent', owed: 'lent', history: 'history', rates: 'history', security: 'security' };
+  const tabMap = { dashboard: 'dashboard', transactions: 'transactions', spending: 'spending', history: 'history',
+    accounts: 'more', lent: 'more', owed: 'more', recurring: 'more', rates: 'more', security: 'more', more: 'more' };
   document.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.page === tabMap[page]));
 
   renderCurrentPage();
@@ -898,11 +1052,15 @@ function renderCurrentPage() {
   switch (currentPage) {
     case 'dashboard': renderDashboard(); break;
     case 'accounts': renderAccounts(); break;
+    case 'transactions': renderTransactions(); break;
+    case 'recurring': renderRecurring(); break;
     case 'lent': renderLent(); break;
     case 'owed': renderOwed(); break;
     case 'history': renderHistory(); break;
+    case 'spending': renderSpending(); break;
     case 'rates': renderRates(); break;
     case 'security': renderSecurity(); break;
+    case 'more': break;
   }
 }
 
@@ -1190,6 +1348,303 @@ function collectAccountForm() {
     account: v('f-account'), type: v('f-type'), currency: v('f-currency'),
     balance: parseFloat(v('f-balance')) || 0, notes: v('f-notes')
   };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRANSACTIONS
+// ══════════════════════════════════════════════════════════════════
+let spendingChart = null;
+let spendingMonthOffset = 0;
+
+function accountCurrency(name) {
+  const a = state.accounts.find(x => x.account === name);
+  return a ? a.currency : 'TRY';
+}
+
+function applyTxnToBalance(txn, sign) {
+  const acc = state.accounts.find(a => a.account === txn.account);
+  if (!acc) return;
+  const dir = txn.type === 'income' ? 1 : -1;
+  acc.balance = (Number(acc.balance) || 0) + dir * (Number(txn.amount) || 0) * sign;
+}
+
+function renderTransactions() {
+  const tbody = document.getElementById('transactions-tbody');
+  const rows = [...state.transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🧾</div>No transactions yet. Tap + or − to add.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const i = state.transactions.indexOf(r);
+    const isIncome = r.type === 'income';
+    const sign = isIncome ? '+' : '−';
+    const cls = isIncome ? 'num-green' : 'num-red';
+    return `<tr>
+      <td data-label="Date">${fmtDate(r.date)}</td>
+      <td data-label="Type"><span class="badge" style="background:${isIncome?'rgba(34,197,94,0.15)':'rgba(248,113,113,0.15)'};color:${isIncome?'var(--green)':'var(--red)'}">${isIncome?'Income':'Expense'}</span></td>
+      <td data-label="Amount" class="${cls}">${sign}${fmtCur(r.amount, r.currency)}</td>
+      <td data-label="Category">${r.category||'—'}</td>
+      <td data-label="Account" style="color:var(--text2)">${r.account||'—'}</td>
+      <td data-label="Note" style="color:var(--text3)">${r.note||'—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openEditTransaction(${i})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTransaction(${i})">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function transactionForm(t) {
+  const accountOptions = state.accounts.map(a => `<option ${t.account===a.account?'selected':''}>${a.account}</option>`).join('');
+  return `
+    <div class="form-row">
+      <div class="form-group">
+        <label>Type</label>
+        <select class="form-control" id="f-txn-type">
+          <option value="income" ${t.type==='income'?'selected':''}>Income (money in)</option>
+          <option value="expense" ${t.type!=='income'?'selected':''}>Expense (money out)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Amount</label>
+        <input class="form-control" id="f-txn-amount" type="number" step="0.01" value="${t.amount||''}" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Account</label>
+        <select class="form-control" id="f-txn-account">${accountOptions || '<option>No accounts — add one first</option>'}</select>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select class="form-control" id="f-txn-category">
+          ${CATEGORIES.map(c=>`<option ${t.category===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input class="form-control" id="f-txn-date" type="date" value="${t.date||today()}">
+      </div>
+      <div class="form-group">
+        <label>Note</label>
+        <input class="form-control" id="f-txn-note" value="${t.note||''}">
+      </div>
+    </div>`;
+}
+
+function collectTransactionForm() {
+  const account = v('f-txn-account');
+  return {
+    type: v('f-txn-type'), amount: parseFloat(v('f-txn-amount')) || 0,
+    account, currency: accountCurrency(account),
+    category: v('f-txn-category'), date: v('f-txn-date') || today(), note: v('f-txn-note'),
+  };
+}
+
+function openAddTransaction(type) {
+  if (currentPage === 'more') { /* allow */ }
+  if (state.accounts.length === 0) { showToast('Add an account first (More → Cash & Accounts).', true); return; }
+  showModal(type === 'income' ? 'Add Income' : 'Add Expense', transactionForm({ type }), (data) => {
+    if (!data.amount) { showToast('Enter an amount.', true); return; }
+    state.transactions.push(data);
+    applyTxnToBalance(data, +1);
+    schedSave();
+    renderTransactions(); renderDashboard();
+  });
+}
+
+function openEditTransaction(i) {
+  const old = { ...state.transactions[i] };
+  showModal('Edit Transaction', transactionForm(state.transactions[i]), (data) => {
+    if (!data.amount) { showToast('Enter an amount.', true); return; }
+    applyTxnToBalance(old, -1);
+    state.transactions[i] = data;
+    applyTxnToBalance(data, +1);
+    schedSave();
+    renderTransactions(); renderDashboard();
+  });
+}
+
+function deleteTransaction(i) {
+  const t = state.transactions[i];
+  if (!confirm(`Delete this ${t.type} of ${fmtCur(t.amount, t.currency)}?`)) return;
+  applyTxnToBalance(t, -1);
+  state.transactions.splice(i, 1);
+  schedSave();
+  renderTransactions(); renderDashboard();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RECURRING
+// ══════════════════════════════════════════════════════════════════
+function renderRecurring() {
+  const tbody = document.getElementById('recurring-tbody');
+  if (state.recurring.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🔁</div>No recurring items yet.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.recurring.map((r, i) => {
+    const isIncome = r.type === 'income';
+    return `<tr>
+      <td data-label="Name"><strong>${r.name||'—'}</strong></td>
+      <td data-label="Type"><span class="badge" style="background:${isIncome?'rgba(34,197,94,0.15)':'rgba(248,113,113,0.15)'};color:${isIncome?'var(--green)':'var(--red)'}">${isIncome?'Income':'Expense'}</span></td>
+      <td data-label="Amount">${fmtCur(r.amount, r.currency)}</td>
+      <td data-label="Category">${r.category||'—'}</td>
+      <td data-label="Account" style="color:var(--text2)">${r.account||'—'}</td>
+      <td data-label="Day">day ${r.day}</td>
+      <td data-label="Last Applied" style="color:var(--text3)">${r.last_applied||'never'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openEditRecurring(${i})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteRecurring(${i})">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function recurringForm(r) {
+  const accountOptions = state.accounts.map(a => `<option ${r.account===a.account?'selected':''}>${a.account}</option>`).join('');
+  return `
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name</label>
+        <input class="form-control" id="f-rec-name" value="${r.name||''}" placeholder="e.g. Rent, Salary">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select class="form-control" id="f-rec-type">
+          <option value="income" ${r.type==='income'?'selected':''}>Income</option>
+          <option value="expense" ${r.type!=='income'?'selected':''}>Expense</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Amount</label>
+        <input class="form-control" id="f-rec-amount" type="number" step="0.01" value="${r.amount||''}">
+      </div>
+      <div class="form-group">
+        <label>Account</label>
+        <select class="form-control" id="f-rec-account">${accountOptions || '<option>No accounts</option>'}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Category</label>
+        <select class="form-control" id="f-rec-category">
+          ${CATEGORIES.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Day of month (1–28)</label>
+        <input class="form-control" id="f-rec-day" type="number" min="1" max="28" value="${r.day||1}">
+      </div>
+    </div>`;
+}
+
+function collectRecurringForm() {
+  const account = v('f-rec-account');
+  let day = parseInt(v('f-rec-day')) || 1;
+  day = Math.min(28, Math.max(1, day));
+  return {
+    name: v('f-rec-name'), type: v('f-rec-type'), amount: parseFloat(v('f-rec-amount')) || 0,
+    account, currency: accountCurrency(account), category: v('f-rec-category'),
+    day, last_applied: '',
+  };
+}
+
+function openAddRecurring() {
+  if (state.accounts.length === 0) { showToast('Add an account first.', true); return; }
+  showModal('Add Recurring Item', recurringForm({}), (data) => {
+    if (!data.name || !data.amount) { showToast('Enter a name and amount.', true); return; }
+    state.recurring.push(data);
+    schedSave();
+    renderRecurring();
+  });
+}
+
+function openEditRecurring(i) {
+  showModal('Edit Recurring Item', recurringForm(state.recurring[i]), (data) => {
+    data.last_applied = state.recurring[i].last_applied || '';
+    state.recurring[i] = data;
+    schedSave();
+    renderRecurring();
+  });
+}
+
+function deleteRecurring(i) {
+  if (!confirm(`Delete recurring item "${state.recurring[i].name}"?`)) return;
+  state.recurring.splice(i, 1);
+  schedSave();
+  renderRecurring();
+}
+
+function applyDueRecurring() {
+  const now = new Date();
+  const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  let applied = false;
+  (state.recurring || []).forEach(r => {
+    const lastYm = (r.last_applied || '').slice(0, 7);
+    if (lastYm === ym) return;
+    if (now.getDate() < (r.day || 1)) return;
+    const dateStr = ym + '-' + String(r.day).padStart(2,'0');
+    const txn = { type: r.type, amount: r.amount, account: r.account, currency: r.currency, category: r.category, date: dateStr, note: r.name + ' (recurring)' };
+    state.transactions.push(txn);
+    applyTxnToBalance(txn, +1);
+    r.last_applied = dateStr;
+    applied = true;
+  });
+  return applied;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SPENDING BY CATEGORY
+// ══════════════════════════════════════════════════════════════════
+function setSpendingMonth(offset, btn) {
+  spendingMonthOffset = offset;
+  document.querySelectorAll('#spending-month-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSpending();
+}
+
+function txnInSelectedPeriod(t) {
+  if (spendingMonthOffset === -1) return true;
+  const d = new Date(t.date);
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() - spendingMonthOffset, 1);
+  return d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth();
+}
+
+function renderSpending() {
+  const txns = (state.transactions || []).filter(txnInSelectedPeriod);
+  const byCat = {};
+  let totalIncome = 0, totalExpense = 0;
+  txns.forEach(t => {
+    const base = toBase(t.amount, t.currency);
+    if (t.type === 'income') { totalIncome += base; }
+    else { totalExpense += base; byCat[t.category||'Other'] = (byCat[t.category||'Other']||0) + base; }
+  });
+  document.getElementById('spending-income').textContent = '₺' + fmt(totalIncome);
+  document.getElementById('spending-expense').textContent = '₺' + fmt(totalExpense);
+
+  const cats = Object.entries(byCat).sort((a,b) => b[1]-a[1]);
+  const palette = ['#f97316','#22c55e','#f87171','#fbbf24','#60a5fa','#c084fc','#34d399','#fb923c','#f472b6','#a3e635','#94a3b8'];
+  const ctx = document.getElementById('spending-chart').getContext('2d');
+  if (spendingChart) spendingChart.destroy();
+  spendingChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: cats.map(c=>c[0]), datasets: [{ data: cats.map(c=>c[1]), backgroundColor: palette, borderWidth: 0, hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ₺${fmt(c.parsed)}` } } } }
+  });
+  const legend = document.getElementById('spending-legend');
+  legend.innerHTML = cats.length ? cats.map(([cat,val],idx) => `
+    <div class="legend-item">
+      <div class="legend-label"><span class="legend-dot" style="background:${palette[idx%palette.length]}"></span>${cat}</div>
+      <div class="legend-val">₺${fmt(val)} <span style="color:var(--text3)">(${totalExpense?Math.round(val/totalExpense*100):0}%)</span></div>
+    </div>`).join('') : '<div class="empty-state">No expenses in this period.</div>';
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1650,6 +2105,8 @@ function modalSave() {
   let data;
   const title = document.getElementById('modal-title').textContent;
   if (title.includes('Account')) data = collectAccountForm();
+  else if (title.includes('Income') || title.includes('Expense') || title.includes('Transaction')) data = collectTransactionForm();
+  else if (title.includes('Recurring')) data = collectRecurringForm();
   else if (title.includes('Lent') || title.includes('Lending')) data = collectLentOwedForm('lent');
   else if (title.includes('Debt')) data = collectLentOwedForm('owed');
   else if (title.includes('Snapshot')) data = collectHistoryForm();
