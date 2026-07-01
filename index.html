@@ -306,6 +306,8 @@
     .card, .security-section { padding: 16px !important; }
 
     .section-header { flex-wrap: wrap; gap: 8px; }
+    #history-range-filters { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+    #history-range-filters .filter-btn { padding: 5px 11px; font-size: 11px; }
     .section-header .card-title { font-size: 14px; flex: 1 1 100%; }
     .section-header .btn-sm { font-size: 11px; padding: 6px 10px; }
     .dashboard-hero, .net-worth-card { grid-template-columns: 1fr !important; }
@@ -530,7 +532,17 @@
         <button class="btn btn-primary" onclick="openAddHistory()">+ Add Snapshot</button>
       </div>
       <div class="card" style="margin-bottom:16px">
-        <div class="card-title">Net Worth Over Time (₺)</div>
+        <div class="section-header" style="margin-bottom:14px">
+          <div class="card-title" style="margin:0">Net Worth Over Time (₺)</div>
+          <div class="filter-group" id="history-range-filters">
+            <button class="filter-btn" onclick="setHistoryRange('7d', this)">1W</button>
+            <button class="filter-btn" onclick="setHistoryRange('21d', this)">3W</button>
+            <button class="filter-btn active" onclick="setHistoryRange('1m', this)">1M</button>
+            <button class="filter-btn" onclick="setHistoryRange('6m', this)">6M</button>
+            <button class="filter-btn" onclick="setHistoryRange('1y', this)">1Y</button>
+            <button class="filter-btn" onclick="setHistoryRange('all', this)">All</button>
+          </div>
+        </div>
         <div class="history-chart-wrap"><canvas id="history-chart"></canvas></div>
       </div>
       <div class="card">
@@ -1431,10 +1443,24 @@ function renderHistory() {
   renderHistoryChart();
 }
 
+let historyRange = '1m';
+function setHistoryRange(range, btn) {
+  historyRange = range;
+  document.querySelectorAll('#history-range-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHistoryChart();
+}
+
+const HISTORY_RANGE_DAYS = { '7d': 7, '21d': 21, '1m': 30, '6m': 182, '1y': 365, all: Infinity };
+
 function renderHistoryChart() {
   const ctx = document.getElementById('history-chart').getContext('2d');
   if (historyChart) historyChart.destroy();
-  const sorted = [...state.history].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const days = HISTORY_RANGE_DAYS[historyRange] ?? 30;
+  const cutoff = Date.now() - days * 86400000;
+  const sorted = [...state.history]
+    .sort((a,b) => new Date(a.date) - new Date(b.date))
+    .filter(r => days === Infinity || new Date(r.date).getTime() >= cutoff);
   historyChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -1642,9 +1668,21 @@ document.getElementById('modal-overlay').addEventListener('keydown', (e) => {
 // SAVE
 // ══════════════════════════════════════════════════════════════════
 function schedSave() {
+  autoLogHistory();
   setSaveStatus('Saving...');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(doSave, 1200);
+}
+
+// Keeps one Net Worth History point per calendar day: moves today's point
+// as balances change instead of adding a new dot per edit.
+function autoLogHistory() {
+  const { cash, owedToMe, iOwe, netWorth } = calcSummary();
+  const t = today();
+  const idx = state.history.findIndex(h => h.date === t);
+  const entry = { date: t, net_worth: netWorth, cash, owed_to_me: owedToMe, i_owe: iOwe, notes: idx >= 0 ? state.history[idx].notes : '' };
+  if (idx >= 0) state.history[idx] = entry;
+  else state.history.push(entry);
 }
 
 async function doSave() {
