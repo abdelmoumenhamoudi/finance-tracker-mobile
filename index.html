@@ -848,14 +848,18 @@ window.onload = () => {
   initPinLock();
 };
 
+let dataLoaded = false;
+
 async function loadData() {
   setSaveStatus('Loading...');
   try {
     const data = await gsReadAll();
     state = { ...state, ...data };
+    dataLoaded = true;
     renderCurrentPage();
     setSaveStatus('');
   } catch (e) {
+    dataLoaded = false;
     showToast('Failed to load data: ' + e.message, true);
     setSaveStatus('Error loading');
   }
@@ -1669,6 +1673,10 @@ document.getElementById('modal-overlay').addEventListener('keydown', (e) => {
 // SAVE
 // ══════════════════════════════════════════════════════════════════
 function schedSave() {
+  if (!dataLoaded) {
+    showToast('Data has not loaded yet — refusing to save to avoid overwriting your real data. Refresh and try again.', true);
+    return;
+  }
   autoLogHistory();
   setSaveStatus('Saving...');
   clearTimeout(saveTimer);
@@ -1866,11 +1874,14 @@ function pinLogoTap() {
 
 function pinForgot() {
   if (!confirm('Reset PIN? The app will remove the current PIN. You can set a new one in Security settings.')) return;
-  PIN.clearPin().then(() => {
+  PIN.clearPin().then(async () => {
+    decoyMode = false;
     document.getElementById('pin-screen').classList.remove('visible');
     document.getElementById('lock-btn').style.display = 'none';
     pinBuffer = '';
     showToast('PIN removed. Set a new one in Security.');
+    navigate('security');
+    await gateGoogleThenLoad();
     renderSecurity();
   });
 }
