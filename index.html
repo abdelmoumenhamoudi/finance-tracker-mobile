@@ -679,16 +679,24 @@
     <div class="page" id="page-rates">
       <div class="section-header">
         <h3>Exchange Rates</h3>
-        <button class="btn btn-primary" onclick="saveRatesNow()">💾 Save Rates</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="refreshRatesNow()">🔄 Update</button>
+          <button class="btn btn-primary btn-sm" onclick="saveRatesNow()">💾 Save</button>
+        </div>
       </div>
       <div class="card" style="margin-bottom:16px; padding:14px 20px">
         <p style="font-size:13px; color:var(--text2)">
-          Base currency: <strong style="color:var(--white)">₺ TRY</strong> —
-          All rates = value of 1 unit of that currency in TRY.
-          DZD is auto-derived from EUR (DZD = EUR_rate / 280).
+          Base <strong style="color:var(--white)">₺ TRY</strong>. EUR/USD/GBP/MAD auto-update daily from the internet; DZD stays parallel (EUR ÷ 280). You can still edit by hand.
         </p>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text)">
+          <input type="checkbox" id="auto-rates-toggle" onchange="toggleAutoRates(this.checked)"> Auto-update daily
+        </label>
       </div>
       <div class="rates-grid" id="rates-grid"></div>
+      <div class="card chart-card" style="margin-top:16px">
+        <div class="card-title">Currency trend vs ₺</div>
+        <div class="history-chart-wrap"><canvas id="rate-trend-chart"></canvas></div>
+      </div>
     </div>
 
     <!-- ═══ SECURITY ═══ -->
@@ -800,7 +808,7 @@
 // ══════════════════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════════════════
-let state = { accounts: [], lent: [], owed: [], rates: {}, history: [], transactions: [], recurring: [] };
+let state = { accounts: [], lent: [], owed: [], rates: {}, history: [], transactions: [], recurring: [], rateHistory: [] };
 let lentFilter = 'all';
 let owedFilter = 'all';
 let modalSaveFn = null;
@@ -823,6 +831,7 @@ const GS_SHEET_DEFS = {
   Rates: ['Currency', 'Symbol', 'Rate'],
   Transactions: ['Date', 'Type', 'Amount', 'Currency', 'Category', 'Account', 'Note'],
   Recurring: ['Name', 'Type', 'Amount', 'Currency', 'Category', 'Account', 'Day', 'Last Applied'],
+  RateHistory: ['Date', 'EUR', 'USD', 'GBP', 'MAD', 'DZD'],
 };
 
 let gisTokenClient = null;
@@ -889,7 +898,7 @@ function gsRowsToObjects(headers, rows) {
 async function gsReadAll() {
   const ranges = Object.keys(GS_SHEET_DEFS).map(n => `ranges=${encodeURIComponent(n + '!A2:Z')}`).join('&');
   const res = await gsFetch(`/values:batchGet?${ranges}`);
-  const [accRows, lentRows, owedRows, histRows, rateRows, txnRows, recRows] = res.valueRanges.map(r => r.values || []);
+  const [accRows, lentRows, owedRows, histRows, rateRows, txnRows, recRows, rateHistRows] = res.valueRanges.map(r => r.values || []);
 
   const accounts = gsRowsToObjects(GS_SHEET_DEFS.Accounts, accRows).map(o => ({
     account: o['Account'], type: o['Type'], currency: o['Currency'], balance: Number(o['Balance']) || 0, notes: o['Notes'],
@@ -928,14 +937,19 @@ async function gsReadAll() {
     category: o['Category'] || '', account: o['Account'] || '', day: Number(o['Day']) || 1, last_applied: o['Last Applied'] || '',
   })).filter(r => r.name);
 
-  return { accounts, lent, owed, history, rates, transactions, recurring };
+  const rateHistory = gsRowsToObjects(GS_SHEET_DEFS.RateHistory, rateHistRows).map(o => ({
+    date: o['Date'] || null, EUR: Number(o['EUR']) || 0, USD: Number(o['USD']) || 0,
+    GBP: Number(o['GBP']) || 0, MAD: Number(o['MAD']) || 0, DZD: Number(o['DZD']) || 0,
+  })).filter(r => r.date);
+
+  return { accounts, lent, owed, history, rates, transactions, recurring, rateHistory };
 }
 
 function gsObjectsToRows(headers, items, mapper) {
   return items.map(item => headers.map(h => mapper(item, h)));
 }
 
-async function gsWriteAll({ accounts, lent, owed, history, rates, transactions, recurring }) {
+async function gsWriteAll({ accounts, lent, owed, history, rates, transactions, recurring, rateHistory }) {
   const data = [];
   if (accounts !== undefined) data.push({ range: 'Accounts!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Accounts, accounts, (a, h) => ({
     'Account': a.account, 'Type': a.type, 'Currency': a.currency, 'Balance': a.balance, 'Notes': a.notes || '',
@@ -964,6 +978,9 @@ async function gsWriteAll({ accounts, lent, owed, history, rates, transactions, 
   if (recurring !== undefined) data.push({ range: 'Recurring!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.Recurring, recurring, (r, h) => ({
     'Name': r.name, 'Type': r.type, 'Amount': r.amount, 'Currency': r.currency,
     'Category': r.category || '', 'Account': r.account || '', 'Day': r.day, 'Last Applied': r.last_applied || '',
+  }[h] ?? '')) });
+  if (rateHistory !== undefined) data.push({ range: 'RateHistory!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.RateHistory, rateHistory, (r, h) => ({
+    'Date': r.date || '', 'EUR': r.EUR || '', 'USD': r.USD || '', 'GBP': r.GBP || '', 'MAD': r.MAD || '', 'DZD': r.DZD || '',
   }[h] ?? '')) });
 
   const clearRanges = data.map(d => d.range);
@@ -996,6 +1013,7 @@ async function loadData() {
     if (applyDueRecurring()) { schedSave(); showToast('Applied due recurring items'); }
     renderCurrentPage();
     setSaveStatus('');
+    autoRefreshRates().then(changed => { if (changed) { schedSave(); renderCurrentPage(); } });
     consumeShortcutAction();
   } catch (e) {
     dataLoaded = false;
@@ -1086,6 +1104,55 @@ function calcSummary() {
     return s + toBase(Math.max(out, 0), r.currency);
   }, 0);
   return { cash, owedToMe, iOwe, netWorth: cash + owedToMe - iOwe };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LIVE EXCHANGE RATES (open.er-api.com, base TRY)
+// ══════════════════════════════════════════════════════════════════
+const RATE_SYMBOLS = { EUR:'€', USD:'$', GBP:'£', MAD:'DH', TRY:'₺', DZD:'DA' };
+
+async function fetchLiveRates(manual) {
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/TRY', { cache: 'no-store' });
+    const j = await res.json();
+    if (j.result !== 'success' || !j.rates) throw new Error('bad response');
+    const r = j.rates;
+    ['EUR','USD','GBP','MAD'].forEach(c => { if (r[c]) state.rates[c] = { symbol: RATE_SYMBOLS[c], rate: 1 / r[c] }; });
+    state.rates['TRY'] = { symbol: '₺', rate: 1 };
+    const eur = state.rates['EUR'] ? state.rates['EUR'].rate : null;
+    state.rates['DZD'] = { symbol: 'DA', rate: eur ? eur / 280 : (state.rates['DZD']?.rate || null) };
+    recordRateHistory();
+    localStorage.setItem('ratesLastFetch', today());
+    return true;
+  } catch (e) {
+    if (manual) showToast('Could not fetch rates: ' + e.message, true);
+    return false;
+  }
+}
+
+function recordRateHistory() {
+  const t = today();
+  const entry = { date: t,
+    EUR: state.rates['EUR']?.rate || 0, USD: state.rates['USD']?.rate || 0,
+    GBP: state.rates['GBP']?.rate || 0, MAD: state.rates['MAD']?.rate || 0, DZD: state.rates['DZD']?.rate || 0 };
+  const idx = state.rateHistory.findIndex(h => h.date === t);
+  if (idx >= 0) state.rateHistory[idx] = entry; else state.rateHistory.push(entry);
+}
+
+async function autoRefreshRates() {
+  if (localStorage.getItem('ratesAutoUpdate') === 'off') return false;
+  if (localStorage.getItem('ratesLastFetch') === today()) return false;
+  return await fetchLiveRates(false);
+}
+
+async function refreshRatesNow() {
+  const ok = await fetchLiveRates(true);
+  if (ok) { schedSave(); renderRates(); showToast('Exchange rates updated ✓'); }
+}
+
+function toggleAutoRates(on) {
+  localStorage.setItem('ratesAutoUpdate', on ? 'on' : 'off');
+  showToast(on ? 'Auto-update daily: ON' : 'Auto-update daily: OFF');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2091,6 +2158,33 @@ function renderRates() {
         ${isDerived ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${cur==='TRY'?'Base currency (always 1)':'Auto = EUR rate ÷ 280'}</div>` : ''}
       </div>`;
   }).join('');
+  const toggle = document.getElementById('auto-rates-toggle');
+  if (toggle) toggle.checked = localStorage.getItem('ratesAutoUpdate') !== 'off';
+  renderRateTrend();
+}
+
+let rateTrendChart = null;
+function renderRateTrend() {
+  const canvas = document.getElementById('rate-trend-chart');
+  if (!canvas) return;
+  const rows = [...(state.rateHistory||[])].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const colors = { EUR:'#f97316', USD:'#22c55e', GBP:'#60a5fa', MAD:'#fbbf24', DZD:'#c084fc' };
+  const ctx = canvas.getContext('2d');
+  if (rateTrendChart) rateTrendChart.destroy();
+  rateTrendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: rows.map(r => fmtDate(r.date)),
+      datasets: ['EUR','USD','GBP','MAD','DZD'].map(c => ({
+        label: c, data: rows.map(r => r[c]), borderColor: colors[c], backgroundColor: 'transparent',
+        tension: 0.3, pointRadius: 2, borderWidth: 2,
+      })),
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#c07820' } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ₺${fmt(c.parsed.y,2)}` } } },
+      scales: { x: { ticks: { color: '#7c4f1a' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#7c4f1a', callback: v => '₺'+v }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+  });
 }
 
 function updateDzdRate() {
@@ -2201,7 +2295,7 @@ async function doSave() {
   if (decoyMode) { setSaveStatus(''); return; }
   try {
     await mergeRemoteHistory();
-    const payload = { accounts: state.accounts, lent: state.lent, owed: state.owed, rates: state.rates, history: state.history, transactions: state.transactions, recurring: state.recurring };
+    const payload = { accounts: state.accounts, lent: state.lent, owed: state.owed, rates: state.rates, history: state.history, transactions: state.transactions, recurring: state.recurring, rateHistory: state.rateHistory };
     await gsWriteAll(payload);
     setSaveStatus('✓ Saved to Sheet');
     setTimeout(() => setSaveStatus(''), 3000);
