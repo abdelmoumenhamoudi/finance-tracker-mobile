@@ -2171,7 +2171,7 @@ async function doSave() {
   if (decoyMode) { setSaveStatus(''); return; }
   try {
     await mergeRemoteHistory();
-    const payload = { accounts: state.accounts, lent: state.lent, owed: state.owed, rates: state.rates, history: state.history };
+    const payload = { accounts: state.accounts, lent: state.lent, owed: state.owed, rates: state.rates, history: state.history, transactions: state.transactions, recurring: state.recurring };
     await gsWriteAll(payload);
     setSaveStatus('✓ Saved to Sheet');
     setTimeout(() => setSaveStatus(''), 3000);
