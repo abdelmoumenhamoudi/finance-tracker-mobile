@@ -752,6 +752,7 @@ async function gsFetch(path, opts = {}) {
   const token = await gisGetToken(true);
   const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GSHEET_ID}${path}`, {
     ...opts,
+    cache: 'no-store',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers || {}) },
   });
   if (!res.ok) throw new Error('Sheets API error: ' + res.status);
