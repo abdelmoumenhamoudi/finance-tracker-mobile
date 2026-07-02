@@ -686,12 +686,13 @@
       </div>
       <div class="card" style="margin-bottom:16px; padding:14px 20px">
         <p style="font-size:13px; color:var(--text2)">
-          Base <strong style="color:var(--white)">₺ TRY</strong>. EUR/USD/GBP/MAD auto-update daily from the internet; DZD stays parallel (EUR ÷ 280). You can still edit by hand.
+          Base <strong style="color:var(--white)">₺ TRY</strong>. EUR/USD/GBP auto-update daily (Frankfurter / ECB); DZD stays parallel (EUR ÷ 280). You can still edit by hand.
         </p>
         <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text)">
           <input type="checkbox" id="auto-rates-toggle" onchange="toggleAutoRates(this.checked)"> Auto-update daily
         </label>
       </div>
+      <div class="card" id="converter-card" style="margin-bottom:16px"></div>
       <div class="rates-grid" id="rates-grid"></div>
       <div class="card chart-card" style="margin-top:16px">
         <div class="card-title">Currency trend vs ₺</div>
@@ -816,7 +817,7 @@ let saveTimer = null;
 let donutChart = null;
 let historyChart = null;
 
-const CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'MAD', 'DZD'];
+const CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'DZD'];
 
 // ══════════════════════════════════════════════════════════════════
 // GOOGLE SHEETS — DIRECT BROWSER ACCESS (no backend)
@@ -831,7 +832,7 @@ const GS_SHEET_DEFS = {
   Rates: ['Currency', 'Symbol', 'Rate'],
   Transactions: ['Date', 'Type', 'Amount', 'Currency', 'Category', 'Account', 'Note'],
   Recurring: ['Name', 'Type', 'Amount', 'Currency', 'Category', 'Account', 'Day', 'Last Applied'],
-  RateHistory: ['Date', 'EUR', 'USD', 'GBP', 'MAD', 'DZD'],
+  RateHistory: ['Date', 'EUR', 'USD', 'GBP', 'DZD'],
 };
 
 let gisTokenClient = null;
@@ -939,7 +940,7 @@ async function gsReadAll() {
 
   const rateHistory = gsRowsToObjects(GS_SHEET_DEFS.RateHistory, rateHistRows).map(o => ({
     date: o['Date'] || null, EUR: Number(o['EUR']) || 0, USD: Number(o['USD']) || 0,
-    GBP: Number(o['GBP']) || 0, MAD: Number(o['MAD']) || 0, DZD: Number(o['DZD']) || 0,
+    GBP: Number(o['GBP']) || 0, DZD: Number(o['DZD']) || 0,
   })).filter(r => r.date);
 
   return { accounts, lent, owed, history, rates, transactions, recurring, rateHistory };
@@ -980,7 +981,7 @@ async function gsWriteAll({ accounts, lent, owed, history, rates, transactions, 
     'Category': r.category || '', 'Account': r.account || '', 'Day': r.day, 'Last Applied': r.last_applied || '',
   }[h] ?? '')) });
   if (rateHistory !== undefined) data.push({ range: 'RateHistory!A2:Z', values: gsObjectsToRows(GS_SHEET_DEFS.RateHistory, rateHistory, (r, h) => ({
-    'Date': r.date || '', 'EUR': r.EUR || '', 'USD': r.USD || '', 'GBP': r.GBP || '', 'MAD': r.MAD || '', 'DZD': r.DZD || '',
+    'Date': r.date || '', 'EUR': r.EUR || '', 'USD': r.USD || '', 'GBP': r.GBP || '', 'DZD': r.DZD || '',
   }[h] ?? '')) });
 
   const clearRanges = data.map(d => d.range);
@@ -1109,18 +1110,19 @@ function calcSummary() {
 // ══════════════════════════════════════════════════════════════════
 // LIVE EXCHANGE RATES (open.er-api.com, base TRY)
 // ══════════════════════════════════════════════════════════════════
-const RATE_SYMBOLS = { EUR:'€', USD:'$', GBP:'£', MAD:'DH', TRY:'₺', DZD:'DA' };
+const RATE_SYMBOLS = { EUR:'€', USD:'$', GBP:'£', TRY:'₺', DZD:'DA' };
 
 async function fetchLiveRates(manual) {
   try {
-    const res = await fetch('https://open.er-api.com/v6/latest/TRY', { cache: 'no-store' });
+    const res = await fetch('https://api.frankfurter.dev/v1/latest?base=TRY&symbols=EUR,USD,GBP', { cache: 'no-store' });
     const j = await res.json();
-    if (j.result !== 'success' || !j.rates) throw new Error('bad response');
+    if (!j.rates) throw new Error('bad response');
     const r = j.rates;
-    ['EUR','USD','GBP','MAD'].forEach(c => { if (r[c]) state.rates[c] = { symbol: RATE_SYMBOLS[c], rate: 1 / r[c] }; });
+    ['EUR','USD','GBP'].forEach(c => { if (r[c]) state.rates[c] = { symbol: RATE_SYMBOLS[c], rate: 1 / r[c] }; });
     state.rates['TRY'] = { symbol: '₺', rate: 1 };
     const eur = state.rates['EUR'] ? state.rates['EUR'].rate : null;
     state.rates['DZD'] = { symbol: 'DA', rate: eur ? eur / 280 : (state.rates['DZD']?.rate || null) };
+    delete state.rates['MAD'];
     recordRateHistory();
     localStorage.setItem('ratesLastFetch', today());
     return true;
@@ -1134,7 +1136,7 @@ function recordRateHistory() {
   const t = today();
   const entry = { date: t,
     EUR: state.rates['EUR']?.rate || 0, USD: state.rates['USD']?.rate || 0,
-    GBP: state.rates['GBP']?.rate || 0, MAD: state.rates['MAD']?.rate || 0, DZD: state.rates['DZD']?.rate || 0 };
+    GBP: state.rates['GBP']?.rate || 0, DZD: state.rates['DZD']?.rate || 0 };
   const idx = state.rateHistory.findIndex(h => h.date === t);
   if (idx >= 0) state.rateHistory[idx] = entry; else state.rateHistory.push(entry);
 }
@@ -2141,7 +2143,7 @@ function collectHistoryForm() {
 // RATES PAGE
 // ══════════════════════════════════════════════════════════════════
 function renderRates() {
-  const order = ['EUR', 'USD', 'GBP', 'MAD', 'TRY', 'DZD'];
+  const order = ['EUR', 'USD', 'GBP', 'TRY', 'DZD'];
   document.getElementById('rates-grid').innerHTML = order.map(cur => {
     const r = state.rates[cur] || { symbol: cur, rate: 1 };
     const isDerived = cur === 'DZD' || cur === 'TRY';
@@ -2160,7 +2162,33 @@ function renderRates() {
   }).join('');
   const toggle = document.getElementById('auto-rates-toggle');
   if (toggle) toggle.checked = localStorage.getItem('ratesAutoUpdate') !== 'off';
+  renderConverter();
   renderRateTrend();
+}
+
+// ── Currency converter ──
+let convFrom = 'EUR', convTo = 'TRY', convAmount = 100;
+function renderConverter() {
+  const card = document.getElementById('converter-card');
+  if (!card) return;
+  const opts = (sel) => CURRENCIES.map(c => `<option ${sel===c?'selected':''}>${c}</option>`).join('');
+  card.innerHTML = `
+    <div class="card-title">💱 Converter</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="flex:2;min-width:110px"><label>Amount</label><input class="form-control" id="conv-amount" type="number" step="0.01" value="${convAmount}" oninput="convertLive()"></div>
+      <div class="form-group" style="flex:1;min-width:80px"><label>From</label><select class="form-control" id="conv-from" onchange="convertLive()">${opts(convFrom)}</select></div>
+      <div class="form-group" style="flex:1;min-width:80px"><label>To</label><select class="form-control" id="conv-to" onchange="convertLive()">${opts(convTo)}</select></div>
+    </div>
+    <div id="conv-result" style="font-size:20px;font-weight:800;color:var(--white);margin-top:14px"></div>`;
+  convertLive();
+}
+function convertLive() {
+  convAmount = parseFloat(v('conv-amount')) || 0;
+  convFrom = v('conv-from') || 'EUR';
+  convTo = v('conv-to') || 'TRY';
+  const result = toBase(convAmount, convFrom) / (getRate(convTo) || 1);
+  const el = document.getElementById('conv-result');
+  if (el) el.innerHTML = `${fmt(convAmount,2)} ${convFrom} &nbsp;=&nbsp; <span style="color:var(--accent)">${fmt(result,2)} ${convTo}</span>`;
 }
 
 let rateTrendChart = null;
@@ -2168,14 +2196,14 @@ function renderRateTrend() {
   const canvas = document.getElementById('rate-trend-chart');
   if (!canvas) return;
   const rows = [...(state.rateHistory||[])].sort((a,b) => new Date(a.date) - new Date(b.date));
-  const colors = { EUR:'#f97316', USD:'#22c55e', GBP:'#60a5fa', MAD:'#fbbf24', DZD:'#c084fc' };
+  const colors = { EUR:'#f97316', USD:'#22c55e', GBP:'#60a5fa', DZD:'#c084fc' };
   const ctx = canvas.getContext('2d');
   if (rateTrendChart) rateTrendChart.destroy();
   rateTrendChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: rows.map(r => fmtDate(r.date)),
-      datasets: ['EUR','USD','GBP','MAD','DZD'].map(c => ({
+      datasets: ['EUR','USD','GBP','DZD'].map(c => ({
         label: c, data: rows.map(r => r[c]), borderColor: colors[c], backgroundColor: 'transparent',
         tension: 0.3, pointRadius: 2, borderWidth: 2,
       })),
@@ -2194,7 +2222,7 @@ function updateDzdRate() {
 }
 
 function saveRatesNow() {
-  const order = ['EUR', 'USD', 'GBP', 'MAD', 'TRY', 'DZD'];
+  const order = ['EUR', 'USD', 'GBP', 'TRY', 'DZD'];
   order.forEach(cur => {
     const el = document.getElementById('rate-' + cur);
     if (el && state.rates[cur]) {
