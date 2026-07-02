@@ -695,7 +695,18 @@
       <div class="card" id="converter-card" style="margin-bottom:16px"></div>
       <div class="rates-grid" id="rates-grid"></div>
       <div class="card chart-card" style="margin-top:16px">
-        <div class="card-title">Currency trend vs ₺</div>
+        <div class="section-header" style="margin-bottom:12px">
+          <div class="card-title" style="margin:0">Currency trend vs ₺</div>
+          <div class="filter-group" id="rate-range-filters">
+            <button class="filter-btn" onclick="setRateRange('7d', this)">1W</button>
+            <button class="filter-btn" onclick="setRateRange('1m', this)">1M</button>
+            <button class="filter-btn active" onclick="setRateRange('3m', this)">3M</button>
+            <button class="filter-btn" onclick="setRateRange('6m', this)">6M</button>
+            <button class="filter-btn" onclick="setRateRange('1y', this)">1Y</button>
+            <button class="filter-btn" onclick="setRateRange('all', this)">All</button>
+          </div>
+        </div>
+        <div id="rate-cur-toggles" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>
         <div class="history-chart-wrap"><canvas id="rate-trend-chart"></canvas></div>
       </div>
     </div>
@@ -2192,25 +2203,52 @@ function convertLive() {
 }
 
 let rateTrendChart = null;
+let rateTrendRange = '3m';
+const rateTrendCurrencies = { EUR:true, USD:true, GBP:true, DZD:true };
+const RATE_TREND_COLORS = { EUR:'#f97316', USD:'#22c55e', GBP:'#60a5fa', DZD:'#c084fc' };
+const RATE_RANGE_DAYS = { '7d':7, '1m':30, '3m':91, '6m':182, '1y':365, all:Infinity };
+
+function setRateRange(r, btn) {
+  rateTrendRange = r;
+  document.querySelectorAll('#rate-range-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRateTrend();
+}
+function toggleRateCur(c) {
+  rateTrendCurrencies[c] = !rateTrendCurrencies[c];
+  renderRateTrend();
+}
+
 function renderRateTrend() {
   const canvas = document.getElementById('rate-trend-chart');
   if (!canvas) return;
-  const rows = [...(state.rateHistory||[])].sort((a,b) => new Date(a.date) - new Date(b.date));
-  const colors = { EUR:'#f97316', USD:'#22c55e', GBP:'#60a5fa', DZD:'#c084fc' };
+
+  const toggles = document.getElementById('rate-cur-toggles');
+  if (toggles) toggles.innerHTML = ['EUR','USD','GBP','DZD'].map(c => {
+    const on = rateTrendCurrencies[c];
+    return `<button onclick="toggleRateCur('${c}')" style="cursor:pointer;border:1px solid ${RATE_TREND_COLORS[c]};background:${on?RATE_TREND_COLORS[c]:'transparent'};color:${on?'#fff':RATE_TREND_COLORS[c]};padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700">${c}</button>`;
+  }).join('');
+
+  const days = RATE_RANGE_DAYS[rateTrendRange] ?? 91;
+  const cutoff = Date.now() - days * 86400000;
+  const rows = [...(state.rateHistory||[])]
+    .sort((a,b) => new Date(a.date) - new Date(b.date))
+    .filter(r => days === Infinity || new Date(r.date).getTime() >= cutoff);
+
   const ctx = canvas.getContext('2d');
   if (rateTrendChart) rateTrendChart.destroy();
   rateTrendChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: rows.map(r => fmtDate(r.date)),
-      datasets: ['EUR','USD','GBP','DZD'].map(c => ({
-        label: c, data: rows.map(r => r[c]), borderColor: colors[c], backgroundColor: 'transparent',
-        tension: 0.3, pointRadius: 2, borderWidth: 2,
+      datasets: ['EUR','USD','GBP','DZD'].filter(c => rateTrendCurrencies[c]).map(c => ({
+        label: c, data: rows.map(r => r[c]), borderColor: RATE_TREND_COLORS[c], backgroundColor: 'transparent',
+        tension: 0.3, pointRadius: 0, borderWidth: 2,
       })),
     },
     options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#c07820' } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ₺${fmt(c.parsed.y,2)}` } } },
-      scales: { x: { ticks: { color: '#7c4f1a' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ₺${fmt(c.parsed.y,2)}` } } },
+      scales: { x: { ticks: { color: '#7c4f1a', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.05)' } },
                 y: { ticks: { color: '#7c4f1a', callback: v => '₺'+v }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
   });
 }
